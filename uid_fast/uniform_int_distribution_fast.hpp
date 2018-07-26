@@ -66,7 +66,7 @@ namespace detail {
 
 // returns number of leading zeroes, from Hackers Delight - Henry Warren:
 // http://hackersdelight.org/
-constexpr int leading_zeros_hackers_delight ( std::uint64_t x ) noexcept {
+[[ nodiscard ]] constexpr int leading_zeros_hackers_delight ( std::uint64_t x ) noexcept {
     int n = 0;
     if ( x <= 0x0000'0000'FFFF'FFFF ) n += 32, x <<= 32;
     if ( x <= 0x0000'FFFF'FFFF'FFFF ) n += 16, x <<= 16;
