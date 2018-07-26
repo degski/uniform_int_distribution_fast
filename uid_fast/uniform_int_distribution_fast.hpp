@@ -41,8 +41,6 @@
 
 #include <iostream>
 
-// requires clang/gcc for the moment (26.07.2018).
-
 #if defined ( _WIN32 ) and not ( defined ( __clang__ ) or defined ( __GNUC__ ) )
 #ifdef _WIN64
 #include <intrin.h>
