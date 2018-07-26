@@ -44,6 +44,7 @@
 #if defined ( _WIN32 ) and not ( defined ( __clang__ ) or defined ( __GNUC__ ) )
 #ifdef _WIN64
 #include <intrin.h>
+#pragma intrinsic ( _umul128 )
 #endif
 #define MSVC 1
 #pragma warning ( push )
@@ -195,8 +196,7 @@ class uniform_int_distribution_fast : public param_type<IntType, uniform_int_dis
             return result_type ( x ) + pt::min;
         }
         #if MSVC
-        unsigned_result_type h;
-        unsigned_result_type l = _umul128 ( x, pt::range, &h );
+        unsigned_result_type h, l = _umul128 ( x, pt::range, &h );
         #else
         double_width_unsigned_result_type m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( pt::range );
         unsigned_result_type l = unsigned_result_type ( m );
@@ -212,10 +212,10 @@ class uniform_int_distribution_fast : public param_type<IntType, uniform_int_dis
                 t %= pt::range;
             }
             while ( l < t ) {
-                x = rng_ref ( );
                 #if MSVC
-                l = _umul128 ( x, pt::range, &h );
+                l = _umul128 ( rng_ref ( ), pt::range, &h );
                 #else
+                x = rng_ref ( );
                 m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( pt::range );
                 l = unsigned_result_type ( m );
                 #endif
