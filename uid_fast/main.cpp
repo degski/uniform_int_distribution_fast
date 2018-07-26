@@ -84,14 +84,14 @@ uint64_t random_bounded ( Rng & rng, uint64_t range) {
 #pragma intrinsic ( _BitScanForward )
 #pragma intrinsic ( _BitScanReverse )
 
-std::uint32_t leading_zeros_hackers_delight ( std::uint64_t x ) {
+constexpr std::uint32_t leading_zeros_hackers_delight ( std::uint64_t x ) noexcept {
     std::uint32_t n = 0;
-    if ( x <= 0x0000'0000'ffff'ffff ) n += 32, x <<= 32;
-    if ( x <= 0x0000'ffff'ffff'ffff ) n += 16, x <<= 16;
-    if ( x <= 0x00ff'ffff'ffff'ffff ) n +=  8, x <<=  8;
-    if ( x <= 0x0fff'ffff'ffff'ffff ) n +=  4, x <<=  4;
-    if ( x <= 0x3fff'ffff'ffff'ffff ) n +=  2, x <<=  2;
-    if ( x <= 0x7fff'ffff'ffff'ffff ) n++;
+    if ( x <= 0x0000'0000'FFFF'FFFF ) n += 32, x <<= 32;
+    if ( x <= 0x0000'FFFF'FFFF'FFFF ) n += 16, x <<= 16;
+    if ( x <= 0x00FF'FFFF'FFFF'FFFF ) n +=  8, x <<=  8;
+    if ( x <= 0x0FFF'FFFF'FFFF'FFFF ) n +=  4, x <<=  4;
+    if ( x <= 0x3FFF'FFFF'FFFF'FFFF ) n +=  2, x <<=  2;
+    if ( x <= 0x7FFF'FFFF'FFFF'FFFF ) ++n;
     return n;
 }
 
