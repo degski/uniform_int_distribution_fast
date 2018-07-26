@@ -58,7 +58,7 @@ template<> struct double_width_integer<std::uint64_t> { using type = __uint128_t
 
 
 template<typename IntType>
-using is_generator_result_type =
+using is_distribution_result_type =
     std::disjunction <
         std::is_same<typename std::make_unsigned<IntType>::type, std::uint16_t>,
         std::is_same<typename std::make_unsigned<IntType>::type, std::uint32_t>,
@@ -104,7 +104,8 @@ struct param_type {
 
     explicit param_type ( result_type min_, result_type max_ ) noexcept :
         min ( min_ ),
-        range ( max_ - min_ + 1 ) { }
+        range ( max_ - min_ + 1 ) { // wraps to 0 for unsigned max.
+    }
 
     [[ nodiscard ]] constexpr bool operator == ( const param_type & rhs ) const noexcept {
         return min == rhs.min and range == rhs.range;
@@ -129,12 +130,12 @@ struct param_type {
 };
 }
 
+using namespace detail;
+
 template<typename IntType>
-class uniform_int_distribution_fast : public detail::param_type<IntType, uniform_int_distribution_fast<IntType>> {
+class uniform_int_distribution_fast : public param_type<IntType, uniform_int_distribution_fast<IntType>> {
 
-    static_assert ( detail::is_generator_result_type<IntType>::value, "char (8-bit) not supported." );
-
-    friend struct detail::param_type<IntType, uniform_int_distribution_fast<IntType>>;
+    static_assert ( is_distribution_result_type<IntType>::value, "char (8-bit) not supported." );
 
     public:
 
@@ -143,18 +144,20 @@ class uniform_int_distribution_fast : public detail::param_type<IntType, uniform
     private:
 
     using unsigned_result_type = typename std::make_unsigned<result_type>::type;
-    using double_width_unsigned_result_type = typename detail::double_width_integer<unsigned_result_type>::type;
+    using double_width_unsigned_result_type = typename double_width_integer<unsigned_result_type>::type;
 
     [[ nodiscard ]] constexpr unsigned_result_type range_max ( ) const noexcept {
         return unsigned_result_type { 1 } << ( sizeof ( unsigned_result_type ) * 8 - 1 );
     }
 
     template<typename Gen>
-    using generator_reference = detail::bits_engine<Gen, unsigned_result_type, ( Gen::max ( ) < std::numeric_limits<unsigned_result_type>::max ( ) )>;
+    using generator_reference = bits_engine<Gen, unsigned_result_type, ( Gen::max ( ) < std::numeric_limits<unsigned_result_type>::max ( ) )>;
 
     public:
 
-    using param_type = detail::param_type<result_type, uniform_int_distribution_fast>;
+    using param_type = param_type<result_type, uniform_int_distribution_fast>;
+
+    friend param_type;
 
     explicit uniform_int_distribution_fast ( ) noexcept :
         param_type ( std::numeric_limits<result_type>::min ( ), std::numeric_limits<result_type>::max ( ) ) {
@@ -171,11 +174,11 @@ class uniform_int_distribution_fast : public detail::param_type<IntType, uniform
 
     template<typename Gen>
     [[ nodiscard ]] result_type operator ( ) ( Gen & rng ) const noexcept {
-        static generator_reference<Gen> gen ( rng );
-        if ( not ( param_type::range ) ) {
-            return result_type ( gen ( ) );
+        static generator_reference<Gen> rng_ref ( rng ); // duplicating the code in an if constexpr will avoid the reference in most cases. is it worth the code duplication?
+        if ( not ( param_type::range ) ) { // exploits the ub (ub is cool), to deal with interval [ std::numeric_limits<result_type>::max ( ), std::numeric_limits<result_type>::max ( ) ].
+            return result_type ( rng_ref ( ) );
         }
-        unsigned_result_type x = gen ( );
+        unsigned_result_type x = rng_ref ( );
         if ( param_type::range >= range_max ( ) ) {
             do {
                 x = rng ( );
@@ -191,7 +194,7 @@ class uniform_int_distribution_fast : public detail::param_type<IntType, uniform
                 t %= param_type::range;
             }
             while ( l < t ) {
-                x = gen ( );
+                x = rng_ref ( );
                 m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( param_type::range );
                 l = unsigned_result_type ( m );
             }
