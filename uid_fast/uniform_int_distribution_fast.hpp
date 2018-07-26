@@ -45,7 +45,9 @@
 #ifdef _WIN64
 #include <intrin.h>
 #pragma intrinsic ( _umul128 )
+#define MSVC64 1
 #endif
+#pragma intrinsic ( _BitScanReverse64 )
 #define MSVC 1
 #pragma warning ( push )
 #pragma warning ( disable : 4244 )
@@ -195,7 +197,7 @@ class uniform_int_distribution_fast : public param_type<IntType, uniform_int_dis
             } while ( x >= pt::range );
             return result_type ( x ) + pt::min;
         }
-        #if MSVC
+        #if MSVC64
         unsigned_result_type h, l = _umul128 ( x, pt::range, &h );
         #else
         double_width_unsigned_result_type m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( pt::range );
@@ -212,7 +214,7 @@ class uniform_int_distribution_fast : public param_type<IntType, uniform_int_dis
                 t %= pt::range;
             }
             while ( l < t ) {
-                #if MSVC
+                #if MSVC64
                 l = _umul128 ( rng_ref ( ), pt::range, &h );
                 #else
                 x = rng_ref ( );
@@ -221,7 +223,7 @@ class uniform_int_distribution_fast : public param_type<IntType, uniform_int_dis
                 #endif
             }
         }
-        #if MSVC
+        #if MSVC64
         return h + pt::min;
         #else
         return result_type ( m >> std::numeric_limits<unsigned_result_type>::digits ) + pt::min;
@@ -241,4 +243,7 @@ class uniform_int_distribution_fast : public param_type<IntType, uniform_int_dis
 #ifdef MSVC
 #pragma warning ( pop )
 #undef MSVC
+#ifdef MSVC64
+#undef MSVC64
+#endif
 #endif

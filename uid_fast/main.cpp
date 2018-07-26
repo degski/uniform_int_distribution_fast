@@ -36,11 +36,13 @@
 
 #include "splitmix.hpp"
 #if defined ( __GNUC__ ) || defined ( __clang__ )
-#include "lehmer.hpp"
+// #include "lehmer.hpp"
 #endif
+
+/*
 #include "uniform_int_distribution_fast.hpp"
 
-int main ( ) {
+int main55654 ( ) {
 
     splitmix64 rng ( [ ] ( ) { std::random_device rdev; return ( static_cast<std::uint64_t> ( rdev ( ) ) << 32 ) | rdev ( ); } ( ) );
     ext::uniform_int_distribution_fast<std::uint64_t> dis ( 0, ( std::uint64_t { 1 } << 63 ) - 100 );
@@ -53,14 +55,16 @@ int main ( ) {
 
     return EXIT_SUCCESS;
 }
+*/
 
-template<typename Rng>
-uint32_t random_bounded1 ( Rng & rng, uint32_t range ) {
-    uint32_t random32bit = rng ( ); //32-bit random number
-    uint64_t multiresult = uint64_t { random32bit } * uint64_t { range };
-    return multiresult >> 32;
-}
 
+
+
+
+
+
+
+/*
 template<typename Rng>
 uint64_t random_bounded ( Rng & rng, uint64_t range) {
     uint64_t highproduct;
@@ -73,14 +77,92 @@ uint64_t random_bounded ( Rng & rng, uint64_t range) {
     }
     return highproduct;
 }
+*/
 
-int main4346463 ( ) {
+#include <intrin.h>
 
-    splitmix64 rng ( /* [ ] ( ) { std::random_device rdev; return rdev ( ); } ( ) */ 123 );
+#pragma intrinsic ( _BitScanForward )
+#pragma intrinsic ( _BitScanReverse )
 
-    for ( int k = 0; k < 10'000; k++ ) {
-        std::cout << random_bounded ( rng, 1'000'000'000 ) << std::endl;
+std::uint32_t leading_zeros_hackers_delight ( std::uint64_t x ) {
+    std::uint32_t n = 0;
+    if ( x <= 0x0000'0000'ffff'ffff ) n += 32, x <<= 32;
+    if ( x <= 0x0000'ffff'ffff'ffff ) n += 16, x <<= 16;
+    if ( x <= 0x00ff'ffff'ffff'ffff ) n +=  8, x <<=  8;
+    if ( x <= 0x0fff'ffff'ffff'ffff ) n +=  4, x <<=  4;
+    if ( x <= 0x3fff'ffff'ffff'ffff ) n +=  2, x <<=  2;
+    if ( x <= 0x7fff'ffff'ffff'ffff ) n++;
+    return n;
+}
+
+
+union large {
+    unsigned long long ll;
+    struct {
+        unsigned long l, h;
+    } s;
+};
+
+unsigned long leading_zeros_intrin_impl ( large x ) {
+    unsigned long c = 0;
+    if ( not ( x.s.h ) ) {
+        _BitScanReverse ( &c, x.s.l );
+        return 63 - c;
     }
+    _BitScanReverse ( &c, x.s.h );
+    return 31 - c;
+}
+
+std::uint32_t leading_zeros_intrin ( std::uint64_t x ) {
+    return leading_zeros_intrin_impl ( *reinterpret_cast<large*> ( &x ) );
+}
+
+
+template<typename Rng>
+std::uint64_t bounded_random ( Rng & rng, std::uint64_t range_ ) {
+    --range_;
+    std::uint32_t zeros = leading_zeros_hackers_delight ( range_ | std::uint64_t { 1 } );
+    std::uint64_t mask = UINT64_MAX >> zeros;
+    while ( true ) {
+        std::uint64_t r = rng ( );
+        std::uint64_t v = r & mask;
+        if ( v <= range_ ) {
+            return v;
+        }
+        std::uint32_t shift = 32;
+        while ( zeros >= shift ) {
+            r >>= shift;
+            v = r & mask;
+            if ( v <= range_ ) {
+                return v;
+            }
+            shift = 64 - ( 64 - shift ) / 2;
+        }
+    }
+}
+
+#include "plf_nanotimer.h"
+
+
+int main ( ) {
+
+    splitmix64 rng ( [ ] ( ) { std::random_device rdev; return rdev ( ); } ( ) );
+
+    plf::nanotimer t;
+
+    std::uint64_t x = 0;
+
+    t.start ( );
+
+    for ( int k = 0; k < 1'000; k++ ) {
+        x += bounded_random ( rng, std::uint64_t { 1 } << 63 );
+    }
+
+    auto r = t.get_elapsed_us ( );
+
+    std::cout << ( std::uint64_t ) r << std::endl;
+    std::cout << x << std::endl;
 
     return 0;
 }
+
