@@ -84,7 +84,6 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="iostream.hpp" />
     <ClInclude Include="lehmer.hpp" />
     <ClInclude Include="splitmix.hpp" />
     <ClInclude Include="uniform_int_distribution_fast.hpp" />

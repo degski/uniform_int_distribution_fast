@@ -25,7 +25,7 @@
 
 #include <array>
 #include <fstream>
-#include "iostream.hpp" // <iostream> + nl, sp etc. defined...
+#include <iostream>
 #include <iterator>
 #include <list>
 #include <map>
@@ -38,6 +38,13 @@
 #include "lehmer.hpp"
 #include "uniform_int_distribution_fast.hpp"
 
+template<typename IntType>
+using is_generator_result_type =
+std::disjunction <
+    std::is_same<typename std::make_unsigned<IntType>::type, std::uint16_t>,
+    std::is_same<typename std::make_unsigned<IntType>::type, std::uint32_t>,
+    std::is_same<typename std::make_unsigned<IntType>::type, std::uint64_t>
+>;
 
 int main ( ) {
 
@@ -48,7 +55,7 @@ int main ( ) {
         std::cout << dis ( rng ) << std::endl;
     }
 
-    std::cout << dis.a ( ) << " " << dis.b ( ) << nl;
+    std::cout << dis.a ( ) << " " << dis.b ( ) << std::endl;
 
     return EXIT_SUCCESS;
 }

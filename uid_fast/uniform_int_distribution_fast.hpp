@@ -39,6 +39,9 @@
 #include <random>
 #include <type_traits>
 
+#include <iostream>
+
+
 // requires clang/gcc for the moment (26.07.2018).
 
 namespace ext {
@@ -47,14 +50,6 @@ template<typename IntType = int>
 class uniform_int_distribution_fast;
 
 namespace detail {
-
-template<typename IT> struct unsign_integer { };
-template<> struct unsign_integer<std::uint16_t> { using type = std::uint16_t; };
-template<> struct unsign_integer<std::uint32_t> { using type = std::uint32_t; };
-template<> struct unsign_integer<std::uint64_t> { using type = std::uint64_t; };
-template<> struct unsign_integer<std::int16_t > { using type = std::uint16_t; };
-template<> struct unsign_integer<std::int32_t > { using type = std::uint32_t; };
-template<> struct unsign_integer<std::int64_t > { using type = std::uint64_t; };
 
 template<typename IT> struct double_width_integer { };
 template<> struct double_width_integer<std::uint16_t> { using type = std::uint32_t; };
@@ -65,9 +60,9 @@ template<> struct double_width_integer<std::uint64_t> { using type = __uint128_t
 template<typename IntType>
 using is_generator_result_type =
     std::disjunction <
-        std::is_same<detail::unsign_integer<IntType>, std::uint16_t>,
-        std::is_same<detail::unsign_integer<IntType>, std::uint32_t>,
-        std::is_same<detail::unsign_integer<IntType>, std::uint64_t>
+        std::is_same<typename std::make_unsigned<IntType>::type, std::uint16_t>,
+        std::is_same<typename std::make_unsigned<IntType>::type, std::uint32_t>,
+        std::is_same<typename std::make_unsigned<IntType>::type, std::uint64_t>
     >;
 
 
@@ -103,7 +98,7 @@ struct param_type {
     using result_type = IntType;
     using distribution_type = Distribution;
 
-    using unsigned_result_type = typename unsign_integer<result_type>::type;
+    using unsigned_result_type = typename std::make_unsigned<result_type>::type;
 
     friend class ::ext::uniform_int_distribution_fast<result_type>;
 
@@ -137,7 +132,7 @@ struct param_type {
 template<typename IntType>
 class uniform_int_distribution_fast : public detail::param_type<IntType, uniform_int_distribution_fast<IntType>> {
 
-    static_assert ( std::negation<detail::is_generator_result_type<IntType>>::value, "char (8-bit) not supported." );
+    static_assert ( detail::is_generator_result_type<IntType>::value, "char (8-bit) not supported." );
 
     friend struct detail::param_type<IntType, uniform_int_distribution_fast<IntType>>;
 
@@ -147,7 +142,7 @@ class uniform_int_distribution_fast : public detail::param_type<IntType, uniform
 
     private:
 
-    using unsigned_result_type = typename detail::unsign_integer<result_type>::type;
+    using unsigned_result_type = typename std::make_unsigned<result_type>::type;
     using double_width_unsigned_result_type = typename detail::double_width_integer<unsigned_result_type>::type;
 
     [[ nodiscard ]] constexpr unsigned_result_type range_max ( ) const noexcept {

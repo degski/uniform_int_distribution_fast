@@ -20,9 +20,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="iostream.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="lehmer.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
