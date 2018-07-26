@@ -53,3 +53,34 @@ int main ( ) {
 
     return EXIT_SUCCESS;
 }
+
+template<typename Rng>
+uint32_t random_bounded1 ( Rng & rng, uint32_t range ) {
+    uint32_t random32bit = rng ( ); //32-bit random number
+    uint64_t multiresult = uint64_t { random32bit } * uint64_t { range };
+    return multiresult >> 32;
+}
+
+template<typename Rng>
+uint64_t random_bounded ( Rng & rng, uint64_t range) {
+    uint64_t highproduct;
+    uint64_t lowproduct = _umul128 ( rng ( ), range, &highproduct );
+    if ( lowproduct < range ) {
+        const uint64_t threshold = (0-range) % range;
+        while ( lowproduct < threshold ) {
+            lowproduct = _umul128 ( rng ( ), range, &highproduct );
+        }
+    }
+    return highproduct;
+}
+
+int main4346463 ( ) {
+
+    splitmix64 rng ( /* [ ] ( ) { std::random_device rdev; return rdev ( ); } ( ) */ 123 );
+
+    for ( int k = 0; k < 10'000; k++ ) {
+        std::cout << random_bounded ( rng, 1'000'000'000 ) << std::endl;
+    }
+
+    return 0;
+}

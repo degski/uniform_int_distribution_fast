@@ -44,6 +44,9 @@
 // requires clang/gcc for the moment (26.07.2018).
 
 #if defined ( _WIN32 ) and not ( defined ( __clang__ ) or defined ( __GNUC__ ) )
+#ifdef _WIN64
+#include <intrin.h>
+#endif
 #define MSVC 1
 #pragma warning ( push )
 #pragma warning ( disable : 4244 )
@@ -155,8 +158,9 @@ class uniform_int_distribution_fast : public param_type<IntType, uniform_int_dis
 
     using pt = param_type;
     using unsigned_result_type = typename std::make_unsigned<result_type>::type;
+    #if not ( MSVC )
     using double_width_unsigned_result_type = typename double_width_integer<unsigned_result_type>::type;
-
+    #endif
     [[ nodiscard ]] constexpr unsigned_result_type range_max ( ) const noexcept {
         return unsigned_result_type { 1 } << ( sizeof ( unsigned_result_type ) * 8 - 1 );
     }
@@ -192,8 +196,13 @@ class uniform_int_distribution_fast : public param_type<IntType, uniform_int_dis
             } while ( x >= pt::range );
             return result_type ( x ) + pt::min;
         }
+        #if MSVC
+        unsigned_result_type h;
+        unsigned_result_type l = _umul128 ( x, pt::range, &h );
+        #else
         double_width_unsigned_result_type m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( pt::range );
         unsigned_result_type l = unsigned_result_type ( m );
+        #endif
         if ( l < pt::range ) {
             #if MSVC // suppress error C4146 (Daniel, your favorite error!).
             unsigned_result_type t = 0 - pt::range;
@@ -206,11 +215,19 @@ class uniform_int_distribution_fast : public param_type<IntType, uniform_int_dis
             }
             while ( l < t ) {
                 x = rng_ref ( );
+                #if MSVC
+                l = _umul128 ( x, pt::range, &h );
+                #else
                 m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( pt::range );
                 l = unsigned_result_type ( m );
+                #endif
             }
         }
+        #if MSVC
+        return h + pt::min;
+        #else
         return result_type ( m >> std::numeric_limits<unsigned_result_type>::digits ) + pt::min;
+        #endif
     }
 
     [[ nodiscard ]] param_type param ( ) const noexcept {
