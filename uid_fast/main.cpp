@@ -79,11 +79,7 @@ uint64_t random_bounded ( Rng & rng, uint64_t range) {
 }
 */
 
-#include <intrin.h>
-
-#pragma intrinsic ( _BitScanReverse )
-
-inline constexpr int leading_zeros_hackers_delight ( std::uint64_t x ) noexcept {
+constexpr int leading_zeros_hackers_delight ( std::uint64_t x ) noexcept {
     // by Henry Warren.
     int n = 0;
     if ( x <= 0x0000'0000'FFFF'FFFF ) n += 32, x <<= 32;
@@ -95,60 +91,8 @@ inline constexpr int leading_zeros_hackers_delight ( std::uint64_t x ) noexcept 
     return n;
 }
 
-
-union large {
-    unsigned long long ll;
-    struct {
-        unsigned long l, h;
-    } s;
-};
-
-constexpr char table [ 64 ] = {
-    32, 31, 99, 16, 99, 30,  3, 99, 15, 99, 99, 99, 29, 10,  2, 99,
-    99, 99, 12, 14, 21, 99, 19, 99, 99, 28, 99, 25, 99,  9,  1, 99,
-    17, 99,  4, 99, 99, 99, 11, 99, 13, 22, 20, 99, 26, 99, 99, 18,
-     5, 99, 99, 23, 99, 27, 99,  6, 99, 24,  7, 99,  8, 99,  0, 99
-};
-
-constexpr int nlz10 ( std::uint32_t x ) noexcept {
-    x = x | ( x >> 1 );    // Propagate leftmost
-    x = x | ( x >> 2 );    // 1-bit to the right.
-    x = x | ( x >> 4 );
-    x = x | ( x >> 8 );
-    x = x | ( x >> 16 );
-    x = x * 0x06EB14F9;    // Multiplier is 7*255**3.
-    return table [ x >> 26 ];
-}
-
-unsigned long leading_zeros_intrin_impl ( large x ) {
-    unsigned long c = 0;
-    if ( not ( x.s.h ) ) {
-        _BitScanReverse ( &c, x.s.l );
-        return 63 - c;
-    }
-    _BitScanReverse ( &c, x.s.h );
-    return 31 - c;
-}
-
-std::uint32_t leading_zeros_intrin ( std::uint64_t x ) {
-    return leading_zeros_intrin_impl ( *reinterpret_cast<large*> ( &x ) );
-}
-
-
-unsigned long leading_zeros_nlz10_impl ( large x ) {
-    if ( not ( x.s.h ) ) {
-        return nlz10 ( x.s.l ) + 32;
-    }
-    return nlz10 ( x.s.h );
-}
-
-std::uint32_t leading_zeros_nlz10 ( std::uint64_t x ) {
-    return leading_zeros_nlz10_impl ( *reinterpret_cast<large*> ( &x ) );
-}
-
-
 template<typename Rng>
-std::uint64_t bounded_random ( Rng & rng, std::uint64_t range_ ) {
+std::uint64_t random_bounded ( Rng & rng, std::uint64_t range_ ) {
     --range_;
     int zeros = leading_zeros_hackers_delight ( range_ | std::uint64_t { 1 } );
     std::uint64_t mask = UINT64_MAX >> zeros;
@@ -183,8 +127,8 @@ int main ( ) {
 
     t.start ( );
 
-    for ( int k = 0; k < 1'000'000; k++ ) {
-        x += bounded_random ( rng, std::uint64_t { 1 } << 63 );
+    for ( int k = 0; k < 1'000; k++ ) {
+        x += random_bounded ( rng, std::uint64_t { 1 } << 63 );
     }
 
     auto r = t.get_elapsed_us ( );

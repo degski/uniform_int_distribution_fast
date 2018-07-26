@@ -45,9 +45,12 @@
 #ifdef _WIN64
 #include <intrin.h>
 #pragma intrinsic ( _umul128 )
+#define MSVC32 0
 #define MSVC64 1
+#else
+#define MSVC32 1
+#define MSVC64 0
 #endif
-#pragma intrinsic ( _BitScanReverse64 )
 #define MSVC 1
 #pragma warning ( push )
 #pragma warning ( disable : 4244 )
@@ -60,6 +63,19 @@ template<typename IntType = int>
 class uniform_int_distribution_fast;
 
 namespace detail {
+
+// returns number of leading zeroes, from Hackers Delight - Henry Warren:
+// http://hackersdelight.org/
+constexpr int leading_zeros_hackers_delight ( std::uint64_t x ) noexcept {
+    int n = 0;
+    if ( x <= 0x0000'0000'FFFF'FFFF ) n += 32, x <<= 32;
+    if ( x <= 0x0000'FFFF'FFFF'FFFF ) n += 16, x <<= 16;
+    if ( x <= 0x00FF'FFFF'FFFF'FFFF ) n +=  8, x <<=  8;
+    if ( x <= 0x0FFF'FFFF'FFFF'FFFF ) n +=  4, x <<=  4;
+    if ( x <= 0x3FFF'FFFF'FFFF'FFFF ) n +=  2, x <<=  2;
+    if ( x <= 0x7FFF'FFFF'FFFF'FFFF ) ++n;
+    return n;
+}
 
 template<typename IT> struct double_width_integer { };
 template<> struct double_width_integer<std::uint16_t> { using type = std::uint32_t; };
@@ -243,7 +259,6 @@ class uniform_int_distribution_fast : public param_type<IntType, uniform_int_dis
 #ifdef MSVC
 #pragma warning ( pop )
 #undef MSVC
-#ifdef MSVC64
+#undef MSVC32
 #undef MSVC64
-#endif
 #endif
