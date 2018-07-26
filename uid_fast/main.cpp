@@ -92,10 +92,10 @@ constexpr int leading_zeros_hackers_delight ( std::uint64_t x ) noexcept {
 }
 
 template<typename Rng>
-std::uint64_t random_bounded ( Rng & rng, std::uint64_t range_ ) {
+std::uint64_t random_bounded ( Rng & rng, std::uint64_t range_ ) noexcept {
     --range_;
-    int zeros = leading_zeros_hackers_delight ( range_ | std::uint64_t { 1 } );
-    std::uint64_t mask = UINT64_MAX >> zeros;
+    const int zeros = leading_zeros_hackers_delight ( range_ | std::uint64_t { 1 } );
+    const std::uint64_t mask = UINT64_MAX >> zeros;
     while ( true ) {
         std::uint64_t r = rng ( );
         std::uint64_t v = r & mask;
