@@ -35,21 +35,15 @@
 #include <vector>
 
 #include "splitmix.hpp"
+#if defined ( __GNUC__ ) || defined ( __clang__ )
 #include "lehmer.hpp"
+#endif
 #include "uniform_int_distribution_fast.hpp"
-
-template<typename IntType>
-using is_generator_result_type =
-std::disjunction <
-    std::is_same<typename std::make_unsigned<IntType>::type, std::uint16_t>,
-    std::is_same<typename std::make_unsigned<IntType>::type, std::uint32_t>,
-    std::is_same<typename std::make_unsigned<IntType>::type, std::uint64_t>
->;
 
 int main ( ) {
 
     splitmix64 rng ( [ ] ( ) { std::random_device rdev; return ( static_cast<std::uint64_t> ( rdev ( ) ) << 32 ) | rdev ( ); } ( ) );
-    ext::uniform_int_distribution_fast<std::int64_t> dis;
+    ext::uniform_int_distribution_fast<std::uint64_t> dis ( 0, ( std::uint64_t { 1 } << 63 ) - 100 );
 
     for ( int k = 0; k < 1000; k++ ) {
         std::cout << dis ( rng ) << std::endl;

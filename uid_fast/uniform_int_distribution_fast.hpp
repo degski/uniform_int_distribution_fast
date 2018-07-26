@@ -41,8 +41,14 @@
 
 #include <iostream>
 
-
 // requires clang/gcc for the moment (26.07.2018).
+
+#if defined ( _WIN32 ) and not ( defined ( __clang__ ) or defined ( __GNUC__ ) )
+#define MSVC 1
+#pragma warning ( push )
+#pragma warning ( disable : 4244 )
+#endif
+
 
 namespace ext {
 
@@ -54,8 +60,9 @@ namespace detail {
 template<typename IT> struct double_width_integer { };
 template<> struct double_width_integer<std::uint16_t> { using type = std::uint32_t; };
 template<> struct double_width_integer<std::uint32_t> { using type = std::uint64_t; };
+#if not ( MSVC )
 template<> struct double_width_integer<std::uint64_t> { using type = __uint128_t; };
-
+#endif
 
 template<typename IntType>
 using is_distribution_result_type =
@@ -140,9 +147,13 @@ class uniform_int_distribution_fast : public param_type<IntType, uniform_int_dis
     public:
 
     using result_type = IntType;
+    using param_type = param_type<result_type, uniform_int_distribution_fast>;
 
     private:
 
+    friend param_type;
+
+    using pt = param_type;
     using unsigned_result_type = typename std::make_unsigned<result_type>::type;
     using double_width_unsigned_result_type = typename double_width_integer<unsigned_result_type>::type;
 
@@ -154,10 +165,6 @@ class uniform_int_distribution_fast : public param_type<IntType, uniform_int_dis
     using generator_reference = bits_engine<Gen, unsigned_result_type, ( Gen::max ( ) < std::numeric_limits<unsigned_result_type>::max ( ) )>;
 
     public:
-
-    using param_type = param_type<result_type, uniform_int_distribution_fast>;
-
-    friend param_type;
 
     explicit uniform_int_distribution_fast ( ) noexcept :
         param_type ( std::numeric_limits<result_type>::min ( ), std::numeric_limits<result_type>::max ( ) ) {
@@ -175,31 +182,35 @@ class uniform_int_distribution_fast : public param_type<IntType, uniform_int_dis
     template<typename Gen>
     [[ nodiscard ]] result_type operator ( ) ( Gen & rng ) const noexcept {
         static generator_reference<Gen> rng_ref ( rng ); // duplicating the code in an if constexpr will avoid the reference in most cases. is it worth the code duplication?
-        if ( not ( param_type::range ) ) { // exploits the ub (ub is cool), to deal with interval [ std::numeric_limits<result_type>::max ( ), std::numeric_limits<result_type>::max ( ) ].
+        if ( 0 == pt::range ) { // exploits the ub (ub is cool), to deal with interval [ std::numeric_limits<result_type>::max ( ), std::numeric_limits<result_type>::max ( ) ].
             return result_type ( rng_ref ( ) );
         }
         unsigned_result_type x = rng_ref ( );
-        if ( param_type::range >= range_max ( ) ) {
+        if ( pt::range >= range_max ( ) ) {
             do {
                 x = rng ( );
-            } while ( x >= param_type::range );
-            return result_type ( x ) + param_type::min;
+            } while ( x >= pt::range );
+            return result_type ( x ) + pt::min;
         }
-        double_width_unsigned_result_type m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( param_type::range );
+        double_width_unsigned_result_type m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( pt::range );
         unsigned_result_type l = unsigned_result_type ( m );
-        if ( l < param_type::range ) {
-            unsigned_result_type t = -param_type::range;
-            t -= param_type::range;
-            if ( t >= param_type::range ) {
-                t %= param_type::range;
+        if ( l < pt::range ) {
+            #if MSVC // suppress error C4146 (Daniel, your favorite error!).
+            unsigned_result_type t = 0 - pt::range;
+            #else
+            unsigned_result_type t =   - pt::range;
+            #endif
+            t -= pt::range;
+            if ( t >= pt::range ) {
+                t %= pt::range;
             }
             while ( l < t ) {
                 x = rng_ref ( );
-                m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( param_type::range );
+                m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( pt::range );
                 l = unsigned_result_type ( m );
             }
         }
-        return result_type ( m >> std::numeric_limits<unsigned_result_type>::digits ) + param_type::min;
+        return result_type ( m >> std::numeric_limits<unsigned_result_type>::digits ) + pt::min;
     }
 
     [[ nodiscard ]] param_type param ( ) const noexcept {
@@ -211,3 +222,8 @@ class uniform_int_distribution_fast : public param_type<IntType, uniform_int_dis
     }
 };
 }
+
+#ifdef MSVC
+#pragma warning ( pop )
+#undef MSVC
+#endif
