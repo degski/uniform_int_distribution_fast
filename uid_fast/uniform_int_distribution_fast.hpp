@@ -45,12 +45,6 @@
 #ifdef _WIN64
 #include <intrin.h>
 #pragma intrinsic ( _umul128 )
-#define MSVC32 0
-#define MSVC64 1
-#else
-#define MSVC32 1
-#define MSVC64 0
-#endif
 #define MSVC 1
 #pragma warning ( push )
 #pragma warning ( disable : 4244 )
@@ -76,6 +70,10 @@ namespace detail {
     if ( x <= 0x7FFF'FFFF'FFFF'FFFF ) ++n;
     return n;
 }
+
+struct model {
+    enum : std::size_t { value = ( sizeof ( void* ) * 8 ) };
+};
 
 template<typename IT> struct double_width_integer { };
 template<> struct double_width_integer<std::uint16_t> { using type = std::uint32_t; };
@@ -258,7 +256,4 @@ class uniform_int_distribution_fast : public param_type<IntType, uniform_int_dis
 
 #ifdef MSVC
 #pragma warning ( pop )
-#undef MSVC
-#undef MSVC32
-#undef MSVC64
 #endif
