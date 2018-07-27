@@ -21,6 +21,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+#include <cassert>
 #include <ciso646>
 
 #include <array>
@@ -33,6 +34,12 @@
 #include <string>
 #include <type_traits>
 #include <vector>
+
+#include <benchmark/benchmark.h>
+
+#ifdef _WIN32
+#pragma comment ( lib, "Shlwapi.lib" )
+#endif
 
 #include "splitmix.hpp"
 #if defined ( __GNUC__ ) || defined ( __clang__ )
@@ -79,6 +86,10 @@ uint64_t random_bounded ( Rng & rng, uint64_t range) {
 }
 */
 
+struct model {
+    enum : std::size_t { value = ( sizeof ( void* ) * 8 ) };
+};
+
 constexpr int leading_zeros_hackers_delight ( std::uint64_t x ) noexcept {
     // by Henry Warren.
     int n = 0;
@@ -91,10 +102,56 @@ constexpr int leading_zeros_hackers_delight ( std::uint64_t x ) noexcept {
     return n;
 }
 
+
+#include <intrin.h>
+
+#pragma intrinsic ( _BitScanReverse )
+#ifdef _WIN64
+#pragma intrinsic ( _BitScanReverse64 )
+#else
+unsigned char _BitScanReverse64 ( unsigned long *, unsigned long long );
+#endif
+
+union large {
+    unsigned long long ull;
+    struct {
+        unsigned long low, high;
+    } ul;
+};
+
+unsigned long leading_zeros_intrin_32 ( large x ) {
+    unsigned long c = 0u;
+    if ( not ( x.ul.high ) ) {
+        _BitScanReverse ( &c, x.ul.low );
+        return 63u - c;
+    }
+    _BitScanReverse ( &c, x.ul.high );
+    return 31u - c;
+}
+
+std::uint32_t leading_zeros ( std::uint64_t x ) noexcept {
+    if constexpr ( model::value == 32 ) {
+        std::uint32_t n = 0;
+        if ( x <= 0x0000'0000'FFFF'FFFF ) n += 32, x <<= 32;
+        if ( x <= 0x0000'FFFF'FFFF'FFFF ) n += 16, x <<= 16;
+        if ( x <= 0x00FF'FFFF'FFFF'FFFF ) n += 8, x <<= 8;
+        if ( x <= 0x0FFF'FFFF'FFFF'FFFF ) n += 4, x <<= 4;
+        if ( x <= 0x3FFF'FFFF'FFFF'FFFF ) n += 2, x <<= 2;
+        if ( x <= 0x7FFF'FFFF'FFFF'FFFF ) ++n;
+        return n;
+    }
+    else {
+        unsigned long c;
+        _BitScanReverse64 ( & c, x );
+        return 63u - c;
+    }
+}
+
+
 template<typename Rng>
 std::uint64_t random_bounded ( Rng & rng, std::uint64_t range_ ) noexcept {
     --range_;
-    const int zeros = leading_zeros_hackers_delight ( range_ | std::uint64_t { 1 } );
+    std::uint32_t zeros = leading_zeros ( range_ | std::uint64_t { 1 } );
     const std::uint64_t mask = UINT64_MAX >> zeros;
     while ( true ) {
         std::uint64_t r = rng ( );
@@ -102,7 +159,7 @@ std::uint64_t random_bounded ( Rng & rng, std::uint64_t range_ ) noexcept {
         if ( v <= range_ ) {
             return v;
         }
-        int shift = 32;
+        unsigned long shift = 32;
         while ( zeros >= shift ) {
             r >>= shift;
             v = r & mask;

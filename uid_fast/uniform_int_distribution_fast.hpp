@@ -244,6 +244,16 @@ class uniform_int_distribution_fast : public param_type<IntType, uniform_int_dis
         #endif
     }
 
+    template<typename Gen>
+    [ [ nodiscard ] ] result_type generate ( Gen & rng ) const noexcept {
+        if constexpr ( model::value == 32 ) {
+
+        }
+        else {
+
+        }
+    }
+
     [[ nodiscard ]] param_type param ( ) const noexcept {
         return *this;
     }
