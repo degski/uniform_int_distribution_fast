@@ -41,13 +41,34 @@
 
 #include <iostream>
 
+
 #if defined ( _WIN32 ) and not ( defined ( __clang__ ) or defined ( __GNUC__ ) )
-#ifdef _WIN64
-#include <intrin.h>
-#pragma intrinsic ( _umul128 )
-#define MSVC 1
-#pragma warning ( push )
-#pragma warning ( disable : 4244 )
+    #include <intrin.h>
+    #ifdef _WIN64
+        #define MSVC32 0
+        #define MSVC64 1
+        #pragma intrinsic ( _umul128 )
+        #pragma intrinsic ( _BitScanReverse )
+        #pragma intrinsic ( _BitScanReverse64 )
+    #else
+        #define MSVC32 1
+        #define MSVC64 0
+        unsigned __int64 _umul128 ( unsigned __int64 Multiplier, unsigned __int64 Multiplicand, unsigned __int64 *HighProduct );
+        #pragma intrinsic ( _BitScanReverse )
+        unsigned char _BitScanReverse64 ( unsigned long *, unsigned long long );
+    #endif
+    #define GNU 0
+    #define MSVC 1
+    #pragma warning ( push )
+    #pragma warning ( disable : 4244 )
+#else
+    #define GNU 1
+    #define MSVC 0
+    #define MSVC32 0
+    #define MSVC64 0
+    unsigned __int64 _umul128 ( unsigned __int64 Multiplier, unsigned __int64 Multiplicand, unsigned __int64 *HighProduct );
+    unsigned char _BitScanReverse ( unsigned long *, unsigned long );
+    unsigned char _BitScanReverse64 ( unsigned long *, unsigned long long );
 #endif
 
 
@@ -58,28 +79,61 @@ class uniform_int_distribution_fast;
 
 namespace detail {
 
-// returns number of leading zeroes, from Hackers Delight - Henry Warren:
-// http://hackersdelight.org/
-[[ nodiscard ]] constexpr int leading_zeros_hackers_delight ( std::uint64_t x ) noexcept {
-    int n = 0;
-    if ( x <= 0x0000'0000'FFFF'FFFF ) n += 32, x <<= 32;
-    if ( x <= 0x0000'FFFF'FFFF'FFFF ) n += 16, x <<= 16;
-    if ( x <= 0x00FF'FFFF'FFFF'FFFF ) n +=  8, x <<=  8;
-    if ( x <= 0x0FFF'FFFF'FFFF'FFFF ) n +=  4, x <<=  4;
-    if ( x <= 0x3FFF'FFFF'FFFF'FFFF ) n +=  2, x <<=  2;
-    if ( x <= 0x7FFF'FFFF'FFFF'FFFF ) ++n;
-    return n;
-}
-
 struct model {
     enum : std::size_t { value = ( sizeof ( void* ) * 8 ) };
 };
 
+union large {
+    unsigned long long ull;
+    struct {
+        unsigned long low, high;
+    } ul;
+};
+
+#if MSVC
+__forceinline unsigned long leading_zeros_intrin_32 ( large x ) {
+    unsigned long c = 0u;
+    if ( not ( x.ul.high ) ) {
+        _BitScanReverse ( &c, x.ul.low );
+        return 63u - c;
+    }
+    _BitScanReverse ( &c, x.ul.high );
+    return 31u - c;
+}
+unsigned long leading_zeros ( std::uint64_t x ) noexcept {
+    if constexpr ( model::value == 32 ) {
+        return leading_zeros_intrin_32 ( *reinterpret_cast<large*> ( &x ) );
+    }
+    else {
+        unsigned long c;
+        _BitScanReverse64 ( &c, x );
+        return 63u - c;
+    }
+}
+#else
+__attribute__ (( always_inline )) int leading_zeros_intrin_32 ( large x ) {
+    if ( not ( x.ul.high ) ) {
+        return __builtin_clz ( x.ul.low ) + 32;
+    }
+    return __builtin_clz ( x.ul.high );
+}
+int leading_zeros ( std::uint64_t x ) noexcept {
+    if constexpr ( model::value == 32 ) {
+        return leading_zeros_intrin_32 ( *reinterpret_cast<large*> ( &x ) );
+    }
+    else {
+        return __builtin_clzll ( x );
+    }
+}
+#endif
+
 template<typename IT> struct double_width_integer { };
 template<> struct double_width_integer<std::uint16_t> { using type = std::uint32_t; };
 template<> struct double_width_integer<std::uint32_t> { using type = std::uint64_t; };
-#if not ( MSVC )
-template<> struct double_width_integer<std::uint64_t> { using type = __uint128_t; };
+#if MSVC
+
+#else
+// template<> struct double_width_integer<std::uint64_t> { using type = __uint128_t; };
 #endif
 
 template<typename IntType>
@@ -173,9 +227,11 @@ class uniform_int_distribution_fast : public param_type<IntType, uniform_int_dis
 
     using pt = param_type;
     using unsigned_result_type = typename std::make_unsigned<result_type>::type;
-    #if not ( MSVC )
-    using double_width_unsigned_result_type = typename double_width_integer<unsigned_result_type>::type;
-    #endif
+    //#if MSVC
+    using double_width_unsigned_result_type = unsigned_result_type; // dummy.
+    //#else
+    //using double_width_unsigned_result_type = typename double_width_integer<unsigned_result_type>::type;
+    //#endif
     [[ nodiscard ]] constexpr unsigned_result_type range_max ( ) const noexcept {
         return unsigned_result_type { 1 } << ( sizeof ( unsigned_result_type ) * 8 - 1 );
     }
@@ -246,11 +302,80 @@ class uniform_int_distribution_fast : public param_type<IntType, uniform_int_dis
 
     template<typename Gen>
     [ [ nodiscard ] ] result_type generate ( Gen & rng ) const noexcept {
-        if constexpr ( model::value == 32 ) {
-
+        static generator_reference<Gen> rng_ref ( rng );
+        if constexpr ( model::value == 32 and std::numeric_limits<unsigned_result_type>::digits == 64 ) {
+            // provide bitmask version for this case (32-bit platform, std::uint64_t range),
+            // optimizations by Melissa E. O'Neill.
+            const unsigned_result_type range_min1 = pt::range - 1;
+            const auto zeros = leading_zeros ( range_min1 | unsigned_result_type { 1 } );
+            const unsigned_result_type mask = std::numeric_limits<unsigned_result_type>::max ( ) >> zeros;
+            while ( true ) {
+                unsigned_result_type r = rng_ref ( );
+                unsigned_result_type v = r & mask;
+                if ( v <= range_min1 ) {
+                    return result_type ( v ) + pt::min;
+                }
+                std::decay_t<decltype ( zeros )> shift = 32;
+                while ( zeros >= shift ) {
+                    r >>= shift;
+                    v = r & mask;
+                    if ( v <= range_min1 ) {
+                        return result_type ( v ) + pt::min;
+                    }
+                    shift = 64 - ( 64 - shift ) / 2;
+                }
+            }
+        }
+        else if constexpr ( MSVC64 and std::numeric_limits<unsigned_result_type>::digits == 64 ) {
+            if ( 0 == pt::range ) {
+                return result_type ( rng_ref ( ) );
+            }
+            unsigned_result_type x = rng_ref ( );
+            if ( pt::range >= range_max ( ) ) {
+                do {
+                    x = rng ( );
+                } while ( x >= pt::range );
+                return result_type ( x ) + pt::min;
+            }
+            unsigned_result_type h, l = _umul128 ( x, pt::range, &h );
+            if ( l < pt::range ) {
+                unsigned_result_type t = 0 - pt::range;
+                t -= pt::range;
+                if ( t >= pt::range ) {
+                    t %= pt::range;
+                }
+                while ( l < t ) {
+                    l = _umul128 ( rng_ref ( ), pt::range, &h );
+                }
+            }
+            return h + pt::min;
         }
         else {
-
+            if ( 0 == pt::range ) {
+                return result_type ( rng_ref ( ) );
+            }
+            unsigned_result_type x = rng_ref ( );
+            if ( pt::range >= range_max ( ) ) {
+                do {
+                    x = rng ( );
+                } while ( x >= pt::range );
+                return result_type ( x ) + pt::min;
+            }
+            double_width_unsigned_result_type m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( pt::range );
+            unsigned_result_type l = unsigned_result_type ( m );
+            if ( l < pt::range ) {
+                unsigned_result_type t = -pt::range;
+                t -= pt::range;
+                if ( t >= pt::range ) {
+                    t %= pt::range;
+                }
+                while ( l < t ) {
+                    x = rng_ref ( );
+                    m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( pt::range );
+                    l = unsigned_result_type ( m );
+                }
+            }
+            return result_type ( m >> std::numeric_limits<unsigned_result_type>::digits ) + pt::min;
         }
     }
 
@@ -264,6 +389,8 @@ class uniform_int_distribution_fast : public param_type<IntType, uniform_int_dis
 };
 }
 
-#ifdef MSVC
 #pragma warning ( pop )
-#endif
+#undef MSVC64
+#undef MSVC32
+#undef MSVC
+#undef GNU
