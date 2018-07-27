@@ -101,6 +101,12 @@ std::uint32_t leading_zeros2 ( std::uint64_t x ) noexcept {
     }
 }
 
+
+template<typename Rng>
+std::uint64_t bounded_rand3 ( Rng & rng, std::uint64_t range ) noexcept {
+    std::uniform_int_distribution<uint64_t> dist ( 0, range - 1 );
+    return dist ( rng );
+}
 template<typename Rng>
 std::uint64_t bounded_rand1 ( Rng & rng, std::uint64_t range_ ) noexcept {
     --range_;
@@ -144,11 +150,6 @@ std::uint64_t bounded_rand2 ( Rng & rng, std::uint64_t range_ ) noexcept {
             shift = 64 - ( 64 - shift ) / 2;
         }
     }
-}
-template<typename Rng>
-std::uint64_t bounded_rand3 ( Rng & rng, std::uint64_t range ) noexcept {
-    std::uniform_int_distribution<uint64_t> dist ( 0, range - 1 );
-    return dist ( rng );
 }
 template<typename Rng>
 std::uint64_t bounded_rand4 ( Rng & rng, std::uint64_t range ) {
@@ -202,6 +203,29 @@ std::uint64_t bounded_rand7 ( Rng & rng, std::uint64_t range ) {
         r = x % range;
     } while ( x - r > ( 0-range ) );
     return r;
+}
+template<typename Rng>
+std::uint64_t bounded_rand8 ( Rng & rng, std::uint64_t range ) noexcept {
+    --range;
+    std::uint64_t mask = UINT64_MAX;
+    mask >>= leading_zeros1 ( range | 1 );
+    std::uint64_t x;
+    do {
+        x = rng ( ) & mask;
+    } while ( x > range );
+    return x;
+}
+
+template<typename Rng>
+std::uint64_t bounded_rand9 ( Rng & rng, std::uint64_t range ) noexcept {
+    --range;
+    std::uint64_t mask = UINT64_MAX;
+    mask >>= leading_zeros2 ( range | 1 );
+    std::uint64_t x;
+    do {
+        x = rng ( ) & mask;
+    } while ( x > range );
+    return x;
 }
 
 template<class Gen>
@@ -309,6 +333,38 @@ void bm_bounded_rand7 ( benchmark::State & state ) noexcept {
         }
     }
 }
+template<class Gen>
+void bm_bounded_rand8 ( benchmark::State & state ) noexcept {
+    static std::uint64_t seed = 0xBE1C0467EBA5FAC;
+    seed *= 0x1AEC805299990163;
+    seed ^= ( seed >> 32 );
+    Gen gen ( seed );
+    typename Gen::result_type a = 0;
+    benchmark::DoNotOptimize ( &a );
+    for ( auto _ : state ) {
+        for ( int i = 0; i < 128; ++i ) {
+            a += bounded_rand8 ( gen, gen ( ) );
+            //benchmark::ClobberMemory ( );
+        }
+    }
+}
+template<class Gen>
+void bm_bounded_rand9 ( benchmark::State & state ) noexcept {
+    static std::uint64_t seed = 0xBE1C0467EBA5FAC;
+    seed *= 0x1AEC805299990163;
+    seed ^= ( seed >> 32 );
+    Gen gen ( seed );
+    typename Gen::result_type a = 0;
+    benchmark::DoNotOptimize ( &a );
+    for ( auto _ : state ) {
+        for ( int i = 0; i < 128; ++i ) {
+            a += bounded_rand9 ( gen, gen ( ) );
+            //benchmark::ClobberMemory ( );
+        }
+    }
+}
+
+
 
 constexpr int repeats = 16;
 
@@ -337,5 +393,13 @@ BENCHMARK_TEMPLATE ( bm_bounded_rand6, splitmix64 )
 ->ReportAggregatesOnly ( true );
 
 BENCHMARK_TEMPLATE ( bm_bounded_rand7, splitmix64 )
+->Repetitions ( repeats )
+->ReportAggregatesOnly ( true );
+
+BENCHMARK_TEMPLATE ( bm_bounded_rand8, splitmix64 )
+->Repetitions ( repeats )
+->ReportAggregatesOnly ( true );
+
+BENCHMARK_TEMPLATE ( bm_bounded_rand9, splitmix64 )
 ->Repetitions ( repeats )
 ->ReportAggregatesOnly ( true );
