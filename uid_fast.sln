@@ -11,6 +11,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		README.md = README.md
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "benchmark", "benchmark\benchmark.vcxproj", "{8ED4AA59-F98E-4DDE-8BEB-ED71A3478ACE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -27,6 +29,14 @@ Global
 		{088E21A6-DF90-41A1-B012-7CF7D289CF9F}.Release|x64.Build.0 = Release|x64
 		{088E21A6-DF90-41A1-B012-7CF7D289CF9F}.Release|x86.ActiveCfg = Release|Win32
 		{088E21A6-DF90-41A1-B012-7CF7D289CF9F}.Release|x86.Build.0 = Release|Win32
+		{8ED4AA59-F98E-4DDE-8BEB-ED71A3478ACE}.Debug|x64.ActiveCfg = Debug|x64
+		{8ED4AA59-F98E-4DDE-8BEB-ED71A3478ACE}.Debug|x64.Build.0 = Debug|x64
+		{8ED4AA59-F98E-4DDE-8BEB-ED71A3478ACE}.Debug|x86.ActiveCfg = Debug|Win32
+		{8ED4AA59-F98E-4DDE-8BEB-ED71A3478ACE}.Debug|x86.Build.0 = Debug|Win32
+		{8ED4AA59-F98E-4DDE-8BEB-ED71A3478ACE}.Release|x64.ActiveCfg = Release|x64
+		{8ED4AA59-F98E-4DDE-8BEB-ED71A3478ACE}.Release|x64.Build.0 = Release|x64
+		{8ED4AA59-F98E-4DDE-8BEB-ED71A3478ACE}.Release|x86.ActiveCfg = Release|Win32
+		{8ED4AA59-F98E-4DDE-8BEB-ED71A3478ACE}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
