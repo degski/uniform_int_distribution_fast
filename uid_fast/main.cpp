@@ -41,11 +41,11 @@
 #if defined ( __GNUC__ ) || defined ( __clang__ )
 // #include "lehmer.hpp"
 #endif
-/*
+
 #include "uniform_int_distribution_fast.hpp"
 
 
-int main23423 ( ) {
+int main ( ) {
 
     splitmix32 rng ( [ ] ( ) { std::random_device rdev; return ( static_cast<std::uint64_t> ( rdev ( ) ) << 32 ) | rdev ( ); } ( ) );
     // ext::uniform_int_distribution_fast<std::uint64_t> dis ( 0, ( std::uint64_t { 1 } << 63 ) - 100 );
@@ -53,7 +53,7 @@ int main23423 ( ) {
 
     std::array<std::uint64_t, 10> freq { 0 };
 
-    for ( std::size_t k = 0; k < 100'000'000; ++k ) {
+    for ( std::size_t k = 0; k < 10'000'000; ++k ) {
         ++freq [ static_cast<std::size_t> ( dis.generate ( rng ) ) ];
     }
 
@@ -66,8 +66,10 @@ int main23423 ( ) {
 
     return EXIT_SUCCESS;
 }
-*/
+
 // -Xclang -fcxx-exceptions -Xclang -std=c++2a -Xclang -pedantic -Qunused-arguments -Xclang -ffast-math -Xclang -Wno-deprecated-declarations -Xclang -Wno-unknown-pragmas -Xclang -Wno-ignored-pragmas -Xclang -Wno-unused-private-field  -mmmx  -msse  -msse2 -msse3 -mssse3 -msse4.1 -msse4.2 -mavx -mavx2 -Xclang -Wno-unused-variable -Xclang -Wno-language-extension-token
+
+/*
 
 #if defined ( _WIN32 ) and not ( defined ( __clang__ ) or defined ( __GNUC__ ) )
 #include <intrin.h>
@@ -241,3 +243,5 @@ int main ( ) {
 
     return EXIT_SUCCESS;
 }
+
+*/

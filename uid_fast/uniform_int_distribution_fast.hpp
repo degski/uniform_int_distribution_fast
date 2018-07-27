@@ -184,6 +184,9 @@ struct param_type {
     explicit param_type ( result_type min_, result_type max_ ) noexcept :
         min ( min_ ),
         range ( max_ - min_ + 1 ) { // wraps to 0 for unsigned max.
+        if constexpr ( model::value == 32 and std::numeric_limits<unsigned_result_type>::digits == 64 ) {
+            --range;
+        }
     }
 
     [[ nodiscard ]] constexpr bool operator == ( const param_type & rhs ) const noexcept {
@@ -199,7 +202,12 @@ struct param_type {
     }
 
     [[ nodiscard ]] constexpr result_type b ( ) const noexcept {
-        return range ? range + min - 1 : std::numeric_limits<result_type>::max ( );
+        if constexpr ( model::value == 32 and std::numeric_limits<unsigned_result_type>::digits == 64 ) {
+            return ( range + 1 ) ? range + min : std::numeric_limits<result_type>::max ( );
+        }
+        else {
+            return range ? range + min - 1 : std::numeric_limits<result_type>::max ( );
+        }
     }
 
     private:
@@ -256,6 +264,9 @@ class uniform_int_distribution_fast : public param_type<IntType, uniform_int_dis
 
     template<typename Gen>
     [[ nodiscard ]] result_type operator ( ) ( Gen & rng ) const noexcept {
+
+        // ALL THIS IS GONNA GO AND BE REPLACED BY THE CODE IN generate ( rng ).
+
         static generator_reference<Gen> rng_ref ( rng ); // duplicating the code in an if constexpr will avoid the reference in most cases. is it worth the code duplication?
         if ( 0 == pt::range ) { // exploits the ub (ub is cool), to deal with interval [ std::numeric_limits<result_type>::max ( ), std::numeric_limits<result_type>::max ( ) ].
             return result_type ( rng_ref ( ) );
@@ -304,27 +315,18 @@ class uniform_int_distribution_fast : public param_type<IntType, uniform_int_dis
     [ [ nodiscard ] ] result_type generate ( Gen & rng ) const noexcept {
         static generator_reference<Gen> rng_ref ( rng );
         if constexpr ( model::value == 32 and std::numeric_limits<unsigned_result_type>::digits == 64 ) {
-            // provide bitmask version for this case (32-bit platform, std::uint64_t range),
-            // optimizations by Melissa E. O'Neill.
-            const unsigned_result_type range_min1 = pt::range - 1;
-            const auto zeros = leading_zeros ( range_min1 | unsigned_result_type { 1 } );
-            const unsigned_result_type mask = std::numeric_limits<unsigned_result_type>::max ( ) >> zeros;
-            while ( true ) {
-                unsigned_result_type r = rng_ref ( );
-                unsigned_result_type v = r & mask;
-                if ( v <= range_min1 ) {
-                    return result_type ( v ) + pt::min;
-                }
-                std::decay_t<decltype ( zeros )> shift = 32;
-                while ( zeros >= shift ) {
-                    r >>= shift;
-                    v = r & mask;
-                    if ( v <= range_min1 ) {
-                        return result_type ( v ) + pt::min;
-                    }
-                    shift = 64 - ( 64 - shift ) / 2;
-                }
+            // provide bitmask version for the case: 32-bit platform, std::uint64_t range.
+            // This seems to be the fastest function on this platform  and a 64-bit range.
+            // leading_zeros  ( range )  uses  intrinsics available  to the compiler, i.e.
+            //  clang  and  gcc  will  use  __builtin_clz ( ),    while   MSVC   will  use
+            // _BitScanReverse.  Overall MSVC seems  seriously slow  on x86 as compared to
+            // clang/llvm, see  the  bottom  of the benchmark  project in  this  solution.
+            const std::uint64_t mask = std::numeric_limits<unsigned_result_type>::max ( ) >> leading_zeros ( pt::range | unsigned_result_type { 1 } );
+            unsigned_result_type x = rng_ref ( ) & mask;
+            while ( x > pt::range ) {
+                x = rng_ref ( ) & mask;
             }
+            return result_type ( x ) + pt::min;
         }
         else if constexpr ( MSVC64 and std::numeric_limits<unsigned_result_type>::digits == 64 ) {
             if ( 0 == pt::range ) {
