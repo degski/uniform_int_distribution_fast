@@ -53,7 +53,7 @@ int main ( ) {
 
     std::array<std::uint64_t, 10> freq { 0 };
 
-    for ( std::size_t k = 0; k < 10'000'000; ++k ) {
+    for ( std::size_t k = 0; k < std::numeric_limits<std::size_t>::max ( ); ++k ) {
         ++freq [ static_cast<std::size_t> ( dis.generate ( rng ) ) ];
     }
 

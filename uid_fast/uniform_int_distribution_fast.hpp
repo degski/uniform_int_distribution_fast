@@ -71,6 +71,16 @@
     unsigned char _BitScanReverse64 ( unsigned long *, unsigned long long );
 #endif
 
+#if UINTPTR_MAX == 0xFFFF'FFFF
+#define MODEL32 1
+#define MODEL64 0
+#elif UINTPTR_MAX == 0xFFFF'FFFF'FFFF'FFFF
+#define MODEL32 0
+#define MODEL64 1
+#else
+#error funny pointers
+#endif
+
 
 namespace ext {
 
@@ -392,6 +402,8 @@ class uniform_int_distribution_fast : public param_type<IntType, uniform_int_dis
 }
 
 #pragma warning ( pop )
+#undef MODEL64
+#undef MODEL32
 #undef MSVC64
 #undef MSVC32
 #undef MSVC
