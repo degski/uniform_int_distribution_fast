@@ -93,21 +93,18 @@ struct model {
     enum : std::size_t { value = ( sizeof ( void* ) * 8 ) };
 };
 
-union large {
-    unsigned long long ull;
-    struct {
-        unsigned long low, high;
-    } ul;
+struct large {
+    unsigned long low, high;
 };
 
 #if MSVC
 __forceinline unsigned long leading_zeros_intrin_32 ( large x ) {
     unsigned long c = 0u;
-    if ( not ( x.ul.high ) ) {
-        _BitScanReverse ( &c, x.ul.low );
+    if ( not ( x.high ) ) {
+        _BitScanReverse ( &c, x.low );
         return 63u - c;
     }
-    _BitScanReverse ( &c, x.ul.high );
+    _BitScanReverse ( &c, x.high );
     return 31u - c;
 }
 unsigned long leading_zeros ( std::uint64_t x ) noexcept {
@@ -122,10 +119,10 @@ unsigned long leading_zeros ( std::uint64_t x ) noexcept {
 }
 #else
 __attribute__ (( always_inline )) int leading_zeros_intrin_32 ( large x ) {
-    if ( not ( x.ul.high ) ) {
-        return __builtin_clz ( x.ul.low ) + 32;
+    if ( not ( x.high ) ) {
+        return __builtin_clz ( x.low ) + 32;
     }
-    return __builtin_clz ( x.ul.high );
+    return __builtin_clz ( x.high );
 }
 int leading_zeros ( std::uint64_t x ) noexcept {
     if constexpr ( model::value == 32 ) {

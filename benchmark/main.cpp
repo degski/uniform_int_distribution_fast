@@ -50,7 +50,7 @@ unsigned char _BitScanReverse64 ( unsigned long *, unsigned long long );
 #include "../uid_fast/splitmix.hpp"
 
 
-#if defined ( _WIN32 ) and not ( defined ( __clang__ ) or defined ( __GNUC__ ) )
+#if defined ( _WIN32 ) and not ( defined ( __clang__ ) or defined ( __GNUC__ ) ) // MSVC and not clang or gcc on windows.
 #include <intrin.h>
 #ifdef _WIN64
 #pragma intrinsic ( _umul128 )
@@ -90,22 +90,27 @@ struct model {
 
 namespace detail {
 
-union large {
-    unsigned long long ull;
-    struct {
-        unsigned long low, high;
-    } ul;
+struct large {
+    unsigned long low, high;
 };
-
+#if MSVC
 __forceinline unsigned long leading_zeros_intrin_32 ( large x ) {
     unsigned long c = 0u;
-    if ( not ( x.ul.high ) ) {
-        _BitScanReverse ( &c, x.ul.low );
+    if ( not ( x.high ) ) {
+        _BitScanReverse ( &c, x.low );
         return 63u - c;
     }
-    _BitScanReverse ( &c, x.ul.high );
+    _BitScanReverse ( &c, x.high );
     return 31u - c;
 }
+#else
+__attribute__ ( ( always_inline ) ) int leading_zeros_intrin_32 ( large x ) {
+    if ( not ( x.high ) ) {
+        return __builtin_clz ( x.low ) + 32;
+    }
+    return __builtin_clz ( x.high );
+}
+#endif
 }
 
 std::uint32_t leading_zeros_intrin ( std::uint64_t x ) noexcept {
@@ -113,12 +118,15 @@ std::uint32_t leading_zeros_intrin ( std::uint64_t x ) noexcept {
         return detail::leading_zeros_intrin_32 ( *reinterpret_cast<detail::large*> ( &x ) );
     }
     else {
+        #if MSVC
         unsigned long c;
         _BitScanReverse64 ( &c, x );
         return 63u - c;
+        #else
+        return __builtin_clzll ( x );
+        #endif
     }
 }
-
 
 template<typename Rng>
 std::uint64_t br_stl ( Rng & rng, std::uint64_t range ) noexcept {
