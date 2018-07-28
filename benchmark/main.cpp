@@ -74,16 +74,16 @@ unsigned char _BitScanReverse64 ( unsigned long *, unsigned long long );
 #endif
 
 #if UINTPTR_MAX == 0xFFFF'FFFF
-#define MODEL32 1
-#define MODEL64 0
+#define MEMORY_MODEL_32 1
+#define MEMORY_MODEL_64 0
 #elif UINTPTR_MAX == 0xFFFF'FFFF'FFFF'FFFF
-#define MODEL32 0
-#define MODEL64 1
+#define MEMORY_MODEL_32 0
+#define MEMORY_MODEL_64 1
 #else
 #error funny pointers
 #endif
 
-#if MODEL32
+#if MEMORY_MODEL_32
 #if GNU
 #if __clang__
 #define COMPILER clangx86
@@ -243,7 +243,7 @@ std::uint64_t br_bitmask ( Rng & rng, std::uint64_t range ) noexcept {
     } while ( x > range );
     return x;
 }
-#if MODEL64
+#if MEMORY_MODEL_64
 template<typename Type>
 using unsigned_result_type = typename std::make_unsigned<Type>::type;
 #if GNU
@@ -330,7 +330,7 @@ BENCHMARK_TEMPLATE ( func, splitmix64 ) \
 #define BM_BR_F_TEMPLATE( name, sml, size ) BM_BR_TEMPLATE ( name, FUNC ( name, sml, COMPILER ), size )
 
 BM_BR_F_TEMPLATE ( stl, small, 1'000.0 )
-#if MODEL64
+#if MEMORY_MODEL_64
 BM_BR_F_TEMPLATE ( lemire_oneill, small, 1'000.0 )
 #endif
 BM_BR_F_TEMPLATE ( bitmask, small, 1'000.0 )
@@ -341,7 +341,7 @@ BM_BR_F_TEMPLATE ( modx1_mopt, small, 1'000.0 )
 BM_BR_F_TEMPLATE ( modx2_topt_moptx2, small, 1'000.0 )
 
 BM_BR_F_TEMPLATE ( stl, medium, 1'000'000.0 )
-#if MODEL64
+#if MEMORY_MODEL_64
 BM_BR_F_TEMPLATE ( lemire_oneill, medium, 1'000'000.0 )
 #endif
 BM_BR_F_TEMPLATE ( bitmask, medium, 1'000'000.0 )
@@ -352,7 +352,7 @@ BM_BR_F_TEMPLATE ( modx1_mopt, medium, 1'000'000.0 )
 BM_BR_F_TEMPLATE ( modx2_topt_moptx2, medium, 1'000'000.0 )
 
 BM_BR_F_TEMPLATE ( stl, large, 1'000'000'000'000.0 )
-#if MODEL64
+#if MEMORY_MODEL_64
 BM_BR_F_TEMPLATE ( lemire_oneill, large, 1'000'000'000'000.0 )
 #endif
 BM_BR_F_TEMPLATE ( bitmask, large, 1'000'000'000'000.0 )
