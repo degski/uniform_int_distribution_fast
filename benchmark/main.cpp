@@ -320,7 +320,7 @@ void func ( benchmark::State & state ) noexcept { \
     } \
 } \
 BENCHMARK_TEMPLATE ( func, splitmix64 ) \
-->Repetitions ( 16 ) \
+->Repetitions ( 8 ) \
 ->ReportAggregatesOnly ( true ) \
 ->Arg ( std::uint64_t { 1 } << shift );
 
@@ -349,15 +349,15 @@ BM_BR_F_TEMPLATE ( modx1_mopt, N ) \
 BM_BR_F_TEMPLATE ( modx2_topt_moptx2, N )
 #endif
 
-BM_BR_F_N ( 1 )
-BM_BR_F_N ( 2 )
-BM_BR_F_N ( 3 )
-BM_BR_F_N ( 4 )
-BM_BR_F_N ( 5 )
-BM_BR_F_N ( 6 )
-BM_BR_F_N ( 7 )
-BM_BR_F_N ( 8 )
-BM_BR_F_N ( 9 )
+BM_BR_F_N (  1 )
+BM_BR_F_N (  2 )
+BM_BR_F_N (  3 )
+BM_BR_F_N (  4 )
+BM_BR_F_N (  5 )
+BM_BR_F_N (  6 )
+BM_BR_F_N (  7 )
+BM_BR_F_N (  8 )
+BM_BR_F_N (  9 )
 BM_BR_F_N ( 10 )
 BM_BR_F_N ( 11 )
 BM_BR_F_N ( 12 )
