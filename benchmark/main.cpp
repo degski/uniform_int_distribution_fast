@@ -83,6 +83,30 @@ unsigned char _BitScanReverse64 ( unsigned long *, unsigned long long );
 #error funny pointers
 #endif
 
+#if MODEL32
+#if GNU
+#if __clang__
+#define COMPILER clangx86
+#else
+#define COMPILER gccx86
+#endif
+#else
+#define COMPILER msvc
+#endif
+#else
+#if GNU
+#if __clang__
+#define COMPILER clangx64
+#else
+#define COMPILER gccx64
+#endif
+#else
+#define COMPILER msvcx64
+#endif
+#endif
+
+#define CAT7( V1, V2, V3, V4, V5, V6, V7 ) V1 ## V2 ## V3 ## V4 ## V5 ## V6 ## V7
+
 
 struct model {
     enum : std::size_t { value = ( sizeof ( void* ) * 8 ) };
@@ -280,9 +304,9 @@ std::uint64_t br_lemire_oneill ( Rng & rng, std::uint64_t range ) noexcept {
 #endif
 #endif
 
-#define BM_BR_TEMPLATE( name, size, range_ ) \
+#define BM_BR_TEMPLATE( name, func, range_ ) \
 template<class Gen> \
-void bm_br_##name##_##size ( benchmark::State & state ) noexcept { \
+void func ( benchmark::State & state ) noexcept { \
     static std::uint64_t seed = 0xBE1C0467EBA5FAC; \
     seed *= 0x1AEC805299990163; \
     seed ^= ( seed >> 32 ); \
@@ -298,40 +322,42 @@ void bm_br_##name##_##size ( benchmark::State & state ) noexcept { \
         } \
     } \
 } \
-BENCHMARK_TEMPLATE ( bm_br_##name##_##size, splitmix64 ) \
+BENCHMARK_TEMPLATE ( func, splitmix64 ) \
 ->Repetitions ( 16 ) \
 ->ReportAggregatesOnly ( true );
 
+#define FUNC( name, sml, compiler ) CAT7 ( bm_bounded_rand, _, name, _, sml, _, compiler )
+#define BM_BR_F_TEMPLATE( name, sml, size ) BM_BR_TEMPLATE ( name, FUNC ( name, sml, COMPILER ), size )
 
-BM_BR_TEMPLATE ( stl, small, 1'000.0 )
+BM_BR_F_TEMPLATE ( stl, small, 1'000.0 )
 #if MODEL64
-BM_BR_TEMPLATE ( lemire_oneill, small, 1'000.0 )
+BM_BR_F_TEMPLATE ( lemire_oneill, small, 1'000.0 )
 #endif
-BM_BR_TEMPLATE ( bitmask, small, 1'000.0 )
-BM_BR_TEMPLATE ( bitmask_alt, small, 1'000.0 )
-BM_BR_TEMPLATE ( modx1, small, 1'000.0 )
-BM_BR_TEMPLATE ( modx2_topt, small, 1'000.0 )
-BM_BR_TEMPLATE ( modx1_mopt, small, 1'000.0 )
-BM_BR_TEMPLATE ( modx2_topt_moptx2, small, 1'000.0 )
+BM_BR_F_TEMPLATE ( bitmask, small, 1'000.0 )
+BM_BR_F_TEMPLATE ( bitmask_alt, small, 1'000.0 )
+BM_BR_F_TEMPLATE ( modx1, small, 1'000.0 )
+BM_BR_F_TEMPLATE ( modx2_topt, small, 1'000.0 )
+BM_BR_F_TEMPLATE ( modx1_mopt, small, 1'000.0 )
+BM_BR_F_TEMPLATE ( modx2_topt_moptx2, small, 1'000.0 )
 
-BM_BR_TEMPLATE ( stl, medium, 1'000'000.0 )
+BM_BR_F_TEMPLATE ( stl, medium, 1'000'000.0 )
 #if MODEL64
-BM_BR_TEMPLATE ( lemire_oneill, medium, 1'000'000.0 )
+BM_BR_F_TEMPLATE ( lemire_oneill, medium, 1'000'000.0 )
 #endif
-BM_BR_TEMPLATE ( bitmask, medium, 1'000'000.0 )
-BM_BR_TEMPLATE ( bitmask_alt, medium, 1'000'000.0 )
-BM_BR_TEMPLATE ( modx1, medium, 1'000'000.0 )
-BM_BR_TEMPLATE ( modx2_topt, medium, 1'000'000.0 )
-BM_BR_TEMPLATE ( modx1_mopt, medium, 1'000'000.0 )
-BM_BR_TEMPLATE ( modx2_topt_moptx2, medium, 1'000'000.0 )
+BM_BR_F_TEMPLATE ( bitmask, medium, 1'000'000.0 )
+BM_BR_F_TEMPLATE ( bitmask_alt, medium, 1'000'000.0 )
+BM_BR_F_TEMPLATE ( modx1, medium, 1'000'000.0 )
+BM_BR_F_TEMPLATE ( modx2_topt, medium, 1'000'000.0 )
+BM_BR_F_TEMPLATE ( modx1_mopt, medium, 1'000'000.0 )
+BM_BR_F_TEMPLATE ( modx2_topt_moptx2, medium, 1'000'000.0 )
 
-BM_BR_TEMPLATE ( stl, large, 1'000'000'000'000.0 )
+BM_BR_F_TEMPLATE ( stl, large, 1'000'000'000'000.0 )
 #if MODEL64
-BM_BR_TEMPLATE ( lemire_oneill, large, 1'000'000'000'000.0 )
+BM_BR_F_TEMPLATE ( lemire_oneill, large, 1'000'000'000'000.0 )
 #endif
-BM_BR_TEMPLATE ( bitmask, large, 1'000'000'000'000.0 )
-BM_BR_TEMPLATE ( bitmask_alt, large, 1'000'000'000'000.0 )
-BM_BR_TEMPLATE ( modx1, large, 1'000'000'000'000.0 )
-BM_BR_TEMPLATE ( modx2_topt, large, 1'000'000'000'000.0 )
-BM_BR_TEMPLATE ( modx1_mopt, large, 1'000'000'000'000.0 )
-BM_BR_TEMPLATE ( modx2_topt_moptx2, large, 1'000'000'000'000.0 )
+BM_BR_F_TEMPLATE ( bitmask, large, 1'000'000'000'000.0 )
+BM_BR_F_TEMPLATE ( bitmask_alt, large, 1'000'000'000'000.0 )
+BM_BR_F_TEMPLATE ( modx1, large, 1'000'000'000'000.0 )
+BM_BR_F_TEMPLATE ( modx2_topt, large, 1'000'000'000'000.0 )
+BM_BR_F_TEMPLATE ( modx1_mopt, large, 1'000'000'000'000.0 )
+BM_BR_F_TEMPLATE ( modx2_topt_moptx2, large, 1'000'000'000'000.0 )
