@@ -299,7 +299,37 @@ std::uint64_t br_lemire_oneill ( Rng & rng, std::uint64_t range ) noexcept {
             l = _umul128 ( rng ( ), range, &h );
         }
     }
-    return h;
+    return ResultType ( h );
+}
+#endif
+#endif
+#if MEMORY_MODEL_64
+#if GNU
+template<typename Rng, typename ResultType = std::uint64_t>
+std::uint64_t br_lemire ( Rng & rng, std::uint64_t range ) noexcept {
+    using double_width_unsigned_result_type = typename double_width_integer<unsigned_result_type<ResultType>>::type;
+    unsigned_result_type<ResultType> t = ( 0 - range ) % range;
+    unsigned_result_type<ResultType> x = rng ( );
+    double_width_unsigned_result_type m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( range );
+    unsigned_result_type<ResultType> l = unsigned_result_type<ResultType> ( m );
+    while ( l < t ) {
+        x = rng ( );
+        m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( range );
+        l = unsigned_result_type<ResultType> ( m );
+    };
+    return ResultType ( m >> std::numeric_limits<unsigned_result_type<ResultType>>::digits );
+}
+#else
+template<typename Rng, typename ResultType = std::uint64_t>
+std::uint64_t br_lemire ( Rng & rng, std::uint64_t range ) noexcept {
+    unsigned_result_type<ResultType> t = ( 0 - range ) % range;
+    unsigned_result_type<ResultType> x = rng ( );
+    unsigned_result_type<ResultType> h, l = _umul128 ( x, range, &h );
+    while ( l < t ) {
+        x = rng ( );
+        l = _umul128 ( x, range, &h );
+    };
+    return ResultType ( h );
 }
 #endif
 #endif
@@ -331,6 +361,7 @@ BENCHMARK_TEMPLATE ( func, splitmix64 ) \
 #if MEMORY_MODEL_64
 #define BM_BR_F_N( N ) \
 BM_BR_F_TEMPLATE ( stl, N ) \
+BM_BR_F_TEMPLATE ( lemire, N ) \
 BM_BR_F_TEMPLATE ( lemire_oneill, N ) \
 BM_BR_F_TEMPLATE ( bitmask, N ) \
 BM_BR_F_TEMPLATE ( bitmask_alt, N ) \
@@ -348,7 +379,7 @@ BM_BR_F_TEMPLATE ( modx2_topt, N ) \
 BM_BR_F_TEMPLATE ( modx1_mopt, N ) \
 BM_BR_F_TEMPLATE ( modx2_topt_moptx2, N )
 #endif
-// BM_BR_F_TEMPLATE ( lemire_oneill, N )
+
 #if 0
 BM_BR_F_N (  1 )
 BM_BR_F_N (  2 )
@@ -422,4 +453,18 @@ BM_BR_F_N ( 8 )
 BM_BR_F_N ( 16 )
 BM_BR_F_N ( 32 )
 BM_BR_F_N ( 48 )
+BM_BR_F_N ( 49 )
+BM_BR_F_N ( 50 )
+BM_BR_F_N ( 51 )
+BM_BR_F_N ( 52 )
+BM_BR_F_N ( 53 )
+BM_BR_F_N ( 54 )
+BM_BR_F_N ( 55 )
+BM_BR_F_N ( 56 )
+BM_BR_F_N ( 57 )
+BM_BR_F_N ( 58 )
+BM_BR_F_N ( 59 )
+BM_BR_F_N ( 60 )
+BM_BR_F_N ( 61 )
+BM_BR_F_N ( 62 )
 BM_BR_F_N ( 63 )
