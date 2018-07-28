@@ -154,8 +154,7 @@ std::uint32_t leading_zeros_intrin ( std::uint64_t x ) noexcept {
 
 template<typename Rng>
 std::uint64_t br_stl ( Rng & rng, std::uint64_t range ) noexcept {
-    std::uniform_int_distribution<uint64_t> dist ( 0, range - 1 );
-    return dist ( rng );
+    return std::uniform_int_distribution<uint64_t> ( 0, range - 1 ) ( rng );
 }
 template<typename Rng>
 std::uint64_t br_bitmask_alt ( Rng & rng, std::uint64_t range_ ) noexcept {
@@ -380,7 +379,7 @@ BM_BR_F_TEMPLATE ( modx1_mopt, N ) \
 BM_BR_F_TEMPLATE ( modx2_topt_moptx2, N )
 #endif
 
-#if 0
+#if 1
 BM_BR_F_N (  1 )
 BM_BR_F_N (  2 )
 BM_BR_F_N (  3 )
@@ -444,8 +443,7 @@ BM_BR_F_N ( 60 )
 BM_BR_F_N ( 61 )
 BM_BR_F_N ( 62 )
 BM_BR_F_N ( 63 )
-#endif
-
+#else
 BM_BR_F_N ( 1 )
 BM_BR_F_N ( 2 )
 BM_BR_F_N ( 4 )
@@ -470,3 +468,4 @@ BM_BR_F_N ( 61 )
 BM_BR_F_N ( 62 )
 #endif
 BM_BR_F_N ( 63 )
+#endif
