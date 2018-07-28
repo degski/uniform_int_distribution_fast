@@ -453,6 +453,7 @@ BM_BR_F_N ( 8 )
 BM_BR_F_N ( 16 )
 BM_BR_F_N ( 32 )
 BM_BR_F_N ( 48 )
+#if COMPILER == clang_x64
 BM_BR_F_N ( 49 )
 BM_BR_F_N ( 50 )
 BM_BR_F_N ( 51 )
@@ -467,4 +468,5 @@ BM_BR_F_N ( 59 )
 BM_BR_F_N ( 60 )
 BM_BR_F_N ( 61 )
 BM_BR_F_N ( 62 )
+#endif
 BM_BR_F_N ( 63 )
