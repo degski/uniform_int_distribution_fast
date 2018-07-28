@@ -315,14 +315,14 @@ void func ( benchmark::State & state ) noexcept { \
     benchmark::DoNotOptimize ( &a ); \
     for ( auto _ : state ) { \
         for ( int i = 0; i < 128; ++i ) { \
-            a += br_##name ( gen, state.range ( 0 ) ); \
+            a += br_##name ( gen, std::uint64_t { 1 } << state.range ( 0 ) ); \
         } \
     } \
 } \
 BENCHMARK_TEMPLATE ( func, splitmix64 ) \
 ->Repetitions ( 8 ) \
 ->ReportAggregatesOnly ( true ) \
-->Arg ( std::uint64_t { 1 } << shift );
+->Arg ( shift );
 
 #define FUNC( name, shift, compiler ) CAT7 ( bm_bounded_rand, _, name, _, shift, _, compiler )
 #define BM_BR_F_TEMPLATE( name, shift ) BM_BR_TEMPLATE ( name, FUNC ( name, shift, COMPILER ), shift )
