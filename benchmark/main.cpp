@@ -86,22 +86,22 @@ unsigned char _BitScanReverse64 ( unsigned long *, unsigned long long );
 #if MEMORY_MODEL_32
 #if GNU
 #if __clang__
-#define COMPILER clangx86
+#define COMPILER clang_x86
 #else
-#define COMPILER gccx86
+#define COMPILER gcc_x86
 #endif
 #else
-#define COMPILER msvc
+#define COMPILER msvc_x86
 #endif
 #else
 #if GNU
 #if __clang__
-#define COMPILER clangx64
+#define COMPILER clang_x64
 #else
-#define COMPILER gccx64
+#define COMPILER gcc_x64
 #endif
 #else
-#define COMPILER msvcx64
+#define COMPILER msvc_x64
 #endif
 #endif
 
@@ -304,7 +304,7 @@ std::uint64_t br_lemire_oneill ( Rng & rng, std::uint64_t range ) noexcept {
 #endif
 #endif
 
-#define BM_BR_TEMPLATE( name, func, range_ ) \
+#define BM_BR_TEMPLATE( name, func, shift ) \
 template<class Gen> \
 void func ( benchmark::State & state ) noexcept { \
     static std::uint64_t seed = 0xBE1C0467EBA5FAC; \
@@ -314,50 +314,101 @@ void func ( benchmark::State & state ) noexcept { \
     typename Gen::result_type a = 0; \
     benchmark::DoNotOptimize ( &a ); \
     for ( auto _ : state ) { \
-        state.PauseTiming ( ); \
-        const std::uint64_t range = std::poisson_distribution<std::uint64_t> ( ( range_ ) ) ( gen ); \
-        state.ResumeTiming ( ); \
         for ( int i = 0; i < 128; ++i ) { \
-            a += br_##name ( gen, range ); \
+            a += br_##name ( gen, state.range ( 0 ) ); \
         } \
     } \
 } \
 BENCHMARK_TEMPLATE ( func, splitmix64 ) \
 ->Repetitions ( 16 ) \
-->ReportAggregatesOnly ( true );
+->ReportAggregatesOnly ( true ) \
+->Arg ( std::uint64_t { 1 } << shift );
 
-#define FUNC( name, sml, compiler ) CAT7 ( bm_bounded_rand, _, name, _, sml, _, compiler )
-#define BM_BR_F_TEMPLATE( name, sml, size ) BM_BR_TEMPLATE ( name, FUNC ( name, sml, COMPILER ), size )
+#define FUNC( name, shift, compiler ) CAT7 ( bm_bounded_rand, _, name, _, shift, _, compiler )
+#define BM_BR_F_TEMPLATE( name, shift ) BM_BR_TEMPLATE ( name, FUNC ( name, shift, COMPILER ), shift )
 
-BM_BR_F_TEMPLATE ( stl, small, 1'000.0 )
+
 #if MEMORY_MODEL_64
-BM_BR_F_TEMPLATE ( lemire_oneill, small, 1'000.0 )
+#define BM_BR_F_ALL( N ) \
+BM_BR_F_TEMPLATE ( stl, N ) \
+BM_BR_F_TEMPLATE ( lemire_oneill, N ) \
+BM_BR_F_TEMPLATE ( bitmask, N ) \
+BM_BR_F_TEMPLATE ( bitmask_alt, N ) \
+BM_BR_F_TEMPLATE ( modx1, N ) \
+BM_BR_F_TEMPLATE ( modx2_topt, N ) \
+BM_BR_F_TEMPLATE ( modx1_mopt, N ) \
+BM_BR_F_TEMPLATE ( modx2_topt_moptx2, N )
+#else
+#define BM_BR_F_N( N ) \
+BM_BR_F_TEMPLATE ( stl, N ) \
+BM_BR_F_TEMPLATE ( bitmask, N ) \
+BM_BR_F_TEMPLATE ( bitmask_alt, N ) \
+BM_BR_F_TEMPLATE ( modx1, N ) \
+BM_BR_F_TEMPLATE ( modx2_topt, N ) \
+BM_BR_F_TEMPLATE ( modx1_mopt, N ) \
+BM_BR_F_TEMPLATE ( modx2_topt_moptx2, N )
 #endif
-BM_BR_F_TEMPLATE ( bitmask, small, 1'000.0 )
-BM_BR_F_TEMPLATE ( bitmask_alt, small, 1'000.0 )
-BM_BR_F_TEMPLATE ( modx1, small, 1'000.0 )
-BM_BR_F_TEMPLATE ( modx2_topt, small, 1'000.0 )
-BM_BR_F_TEMPLATE ( modx1_mopt, small, 1'000.0 )
-BM_BR_F_TEMPLATE ( modx2_topt_moptx2, small, 1'000.0 )
 
-BM_BR_F_TEMPLATE ( stl, medium, 1'000'000.0 )
-#if MEMORY_MODEL_64
-BM_BR_F_TEMPLATE ( lemire_oneill, medium, 1'000'000.0 )
-#endif
-BM_BR_F_TEMPLATE ( bitmask, medium, 1'000'000.0 )
-BM_BR_F_TEMPLATE ( bitmask_alt, medium, 1'000'000.0 )
-BM_BR_F_TEMPLATE ( modx1, medium, 1'000'000.0 )
-BM_BR_F_TEMPLATE ( modx2_topt, medium, 1'000'000.0 )
-BM_BR_F_TEMPLATE ( modx1_mopt, medium, 1'000'000.0 )
-BM_BR_F_TEMPLATE ( modx2_topt_moptx2, medium, 1'000'000.0 )
-
-BM_BR_F_TEMPLATE ( stl, large, 1'000'000'000'000.0 )
-#if MEMORY_MODEL_64
-BM_BR_F_TEMPLATE ( lemire_oneill, large, 1'000'000'000'000.0 )
-#endif
-BM_BR_F_TEMPLATE ( bitmask, large, 1'000'000'000'000.0 )
-BM_BR_F_TEMPLATE ( bitmask_alt, large, 1'000'000'000'000.0 )
-BM_BR_F_TEMPLATE ( modx1, large, 1'000'000'000'000.0 )
-BM_BR_F_TEMPLATE ( modx2_topt, large, 1'000'000'000'000.0 )
-BM_BR_F_TEMPLATE ( modx1_mopt, large, 1'000'000'000'000.0 )
-BM_BR_F_TEMPLATE ( modx2_topt_moptx2, large, 1'000'000'000'000.0 )
+BM_BR_F_N ( 1 )
+BM_BR_F_N ( 2 )
+BM_BR_F_N ( 3 )
+BM_BR_F_N ( 4 )
+BM_BR_F_N ( 5 )
+BM_BR_F_N ( 6 )
+BM_BR_F_N ( 7 )
+BM_BR_F_N ( 8 )
+BM_BR_F_N ( 9 )
+BM_BR_F_N ( 10 )
+BM_BR_F_N ( 11 )
+BM_BR_F_N ( 12 )
+BM_BR_F_N ( 13 )
+BM_BR_F_N ( 14 )
+BM_BR_F_N ( 15 )
+BM_BR_F_N ( 16 )
+BM_BR_F_N ( 17 )
+BM_BR_F_N ( 18 )
+BM_BR_F_N ( 19 )
+BM_BR_F_N ( 20 )
+BM_BR_F_N ( 21 )
+BM_BR_F_N ( 22 )
+BM_BR_F_N ( 23 )
+BM_BR_F_N ( 24 )
+BM_BR_F_N ( 25 )
+BM_BR_F_N ( 26 )
+BM_BR_F_N ( 27 )
+BM_BR_F_N ( 28 )
+BM_BR_F_N ( 29 )
+BM_BR_F_N ( 30 )
+BM_BR_F_N ( 31 )
+BM_BR_F_N ( 32 )
+BM_BR_F_N ( 33 )
+BM_BR_F_N ( 34 )
+BM_BR_F_N ( 35 )
+BM_BR_F_N ( 36 )
+BM_BR_F_N ( 37 )
+BM_BR_F_N ( 38 )
+BM_BR_F_N ( 39 )
+BM_BR_F_N ( 40 )
+BM_BR_F_N ( 41 )
+BM_BR_F_N ( 42 )
+BM_BR_F_N ( 43 )
+BM_BR_F_N ( 44 )
+BM_BR_F_N ( 45 )
+BM_BR_F_N ( 46 )
+BM_BR_F_N ( 47 )
+BM_BR_F_N ( 48 )
+BM_BR_F_N ( 49 )
+BM_BR_F_N ( 50 )
+BM_BR_F_N ( 51 )
+BM_BR_F_N ( 52 )
+BM_BR_F_N ( 53 )
+BM_BR_F_N ( 54 )
+BM_BR_F_N ( 55 )
+BM_BR_F_N ( 56 )
+BM_BR_F_N ( 57 )
+BM_BR_F_N ( 58 )
+BM_BR_F_N ( 59 )
+BM_BR_F_N ( 60 )
+BM_BR_F_N ( 61 )
+BM_BR_F_N ( 62 )
+BM_BR_F_N ( 63 )
