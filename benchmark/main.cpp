@@ -329,7 +329,7 @@ BENCHMARK_TEMPLATE ( func, splitmix64 ) \
 
 
 #if MEMORY_MODEL_64
-#define BM_BR_F_ALL( N ) \
+#define BM_BR_F_N( N ) \
 BM_BR_F_TEMPLATE ( stl, N ) \
 BM_BR_F_TEMPLATE ( lemire_oneill, N ) \
 BM_BR_F_TEMPLATE ( bitmask, N ) \
@@ -348,7 +348,8 @@ BM_BR_F_TEMPLATE ( modx2_topt, N ) \
 BM_BR_F_TEMPLATE ( modx1_mopt, N ) \
 BM_BR_F_TEMPLATE ( modx2_topt_moptx2, N )
 #endif
-
+// BM_BR_F_TEMPLATE ( lemire_oneill, N )
+#if 0
 BM_BR_F_N (  1 )
 BM_BR_F_N (  2 )
 BM_BR_F_N (  3 )
@@ -411,4 +412,14 @@ BM_BR_F_N ( 59 )
 BM_BR_F_N ( 60 )
 BM_BR_F_N ( 61 )
 BM_BR_F_N ( 62 )
+BM_BR_F_N ( 63 )
+#endif
+
+BM_BR_F_N ( 1 )
+BM_BR_F_N ( 2 )
+BM_BR_F_N ( 4 )
+BM_BR_F_N ( 8 )
+BM_BR_F_N ( 16 )
+BM_BR_F_N ( 32 )
+BM_BR_F_N ( 48 )
 BM_BR_F_N ( 63 )
