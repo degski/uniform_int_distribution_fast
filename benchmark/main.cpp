@@ -107,11 +107,6 @@ unsigned char _BitScanReverse64 ( unsigned long *, unsigned long long );
 
 #define CAT7( V1, V2, V3, V4, V5, V6, V7 ) V1 ## V2 ## V3 ## V4 ## V5 ## V6 ## V7
 
-
-struct model {
-    enum : std::size_t { value = ( sizeof ( void* ) * 8 ) };
-};
-
 namespace detail {
 
 struct large {
@@ -137,8 +132,18 @@ __attribute__ ( ( always_inline ) ) int leading_zeros_intrin_32 ( large x ) {
 #endif
 }
 
+std::uint32_t leading_zeros_intrin ( std::uint32_t x ) noexcept {
+#if MSVC
+    unsigned long c;
+    _BitScanReverse ( &c, x );
+    return 63u - c;
+#else
+    return __builtin_clz ( x );
+#endif
+}
+
 std::uint32_t leading_zeros_intrin ( std::uint64_t x ) noexcept {
-    if constexpr ( model::value == 32 ) {
+    if constexpr ( MEMORY_MODEL_32 ) {
         return detail::leading_zeros_intrin_32 ( *reinterpret_cast<detail::large*> ( &x ) );
     }
     else {
@@ -152,47 +157,47 @@ std::uint32_t leading_zeros_intrin ( std::uint64_t x ) noexcept {
     }
 }
 
-template<typename Rng>
-std::uint64_t br_stl ( Rng & rng, std::uint64_t range ) noexcept {
-    return std::uniform_int_distribution<uint64_t> ( 0, range - 1 ) ( rng );
+template<typename Rng, typename Type>
+Type br_stl ( Rng & rng, Type range ) noexcept {
+    return std::uniform_int_distribution<Type> ( 0, range - 1 ) ( rng );
 }
-template<typename Rng>
-std::uint64_t br_bitmask_alt ( Rng & rng, std::uint64_t range_ ) noexcept {
+template<typename Rng, typename Type>
+Type br_bitmask_alt ( Rng & rng, Type range_ ) noexcept {
     --range_;
-    std::uint32_t zeros = leading_zeros_intrin ( range_ | std::uint64_t { 1 } );
-    const std::uint64_t mask = UINT64_MAX >> zeros;
+    std::uint32_t zeros = leading_zeros_intrin ( range_ | Type { 1 } );
+    const Type mask = std::numeric_limits<Type>::max ( ) >> zeros;
     while ( true ) {
-        std::uint64_t r = rng ( );
-        std::uint64_t v = r & mask;
+        Type r = rng ( );
+        Type v = r & mask;
         if ( v <= range_ ) {
             return v;
         }
-        unsigned long shift = 32;
+        std::uint32_t shift = 32u;
         while ( zeros >= shift ) {
             r >>= shift;
             v = r & mask;
             if ( v <= range_ ) {
                 return v;
             }
-            shift = 64 - ( 64 - shift ) / 2;
+            shift = 64u - ( 64u - shift ) / 2;
         }
     }
 }
-template<typename Rng>
-std::uint64_t br_modx2_topt ( Rng & rng, std::uint64_t range ) {
-    std::uint64_t r = rng ( );
+template<typename Rng, typename Type>
+Type br_modx2_topt ( Rng & rng, Type range ) {
+    Type r = rng ( );
     if ( r < range ) {
-        std::uint64_t t = ( 0 - range ) % range;
+        Type t = ( 0 - range ) % range;
         while ( r < t )
             r = rng ( );
     }
     return r % range;
 }
-template<typename Rng>
-std::uint64_t br_modx2_topt_moptx2 ( Rng & rng, std::uint64_t range ) {
-    std::uint64_t r = rng ( );
+template<typename Rng, typename Type>
+Type br_modx2_topt_moptx2 ( Rng & rng, Type range ) {
+    Type r = rng ( );
     if ( r < range ) {
-        std::uint64_t t = 0 - range;
+        Type t = 0 - range;
         if ( t >= range ) {
             t -= range;
             if ( t >= range )
@@ -208,9 +213,9 @@ std::uint64_t br_modx2_topt_moptx2 ( Rng & rng, std::uint64_t range ) {
     }
     return r;
 }
-template<typename Rng>
-std::uint64_t br_modx1_mopt ( Rng & rng, std::uint64_t range ) {
-    std::uint64_t x, r;
+template<typename Rng, typename Type>
+Type br_modx1_mopt ( Rng & rng, Type range ) {
+    Type x, r;
     do {
         x = rng ( );
         r = x;
@@ -219,40 +224,42 @@ std::uint64_t br_modx1_mopt ( Rng & rng, std::uint64_t range ) {
             if ( r >= range )
                 r %= range;
         }
-    } while ( x - r > std::uint64_t ( 0 - range ) );
+    } while ( x - r > Type ( 0 - range ) );
     return r;
 }
-template<typename Rng>
-std::uint64_t br_modx1 ( Rng & rng, std::uint64_t range ) {
-    std::uint64_t x, r;
+template<typename Rng, typename Type>
+Type br_modx1 ( Rng & rng, Type range ) {
+    Type x, r;
     do {
         x = rng ( );
         r = x % range;
-    } while ( x - r > std::uint64_t ( 0 - range ) );
+    } while ( x - r > Type ( 0 - range ) );
     return r;
 }
-template<typename Rng>
-std::uint64_t br_bitmask ( Rng & rng, std::uint64_t range ) noexcept {
+template<typename Rng, typename Type>
+Type br_bitmask ( Rng & rng, Type range ) noexcept {
     --range;
-    std::uint64_t mask = UINT64_MAX;
-    mask >>= leading_zeros_intrin ( range | 1 );
-    std::uint64_t x;
+    Type mask = std::numeric_limits<Type>::max ( );
+    mask >>= leading_zeros_intrin ( range | Type { 1 } );
+    Type x;
     do {
         x = rng ( ) & mask;
     } while ( x > range );
     return x;
 }
-#if MEMORY_MODEL_64
+
 template<typename Type>
 using unsigned_result_type = typename std::make_unsigned<Type>::type;
-#if GNU
+
 template<typename IT> struct double_width_integer { };
 template<> struct double_width_integer<std::uint16_t> { using type = std::uint32_t; };
 template<> struct double_width_integer<std::uint32_t> { using type = std::uint64_t; };
+#if MEMORY_MODEL_64
+#if GNU
 template<> struct double_width_integer<std::uint64_t> { using type = __uint128_t; };
 
-template<typename Rng, typename ResultType = std::uint64_t>
-std::uint64_t br_lemire_oneill ( Rng & rng, std::uint64_t range ) noexcept {
+template<typename Rng, typename Type, typename ResultType = Type>
+ResultType br_lemire_oneill ( Rng & rng, Type range ) noexcept {
     using double_width_unsigned_result_type = typename double_width_integer<unsigned_result_type<ResultType>>::type;
     unsigned_result_type<ResultType> x = rng ( );
     if ( range >= ( unsigned_result_type<ResultType> { 1 } << ( sizeof ( unsigned_result_type<ResultType> ) * 8 - 1 ) ) ) {
@@ -278,8 +285,62 @@ std::uint64_t br_lemire_oneill ( Rng & rng, std::uint64_t range ) noexcept {
     return ResultType ( m >> std::numeric_limits<unsigned_result_type<ResultType>>::digits );
 }
 #else
-template<typename Rng, typename ResultType = std::uint64_t>
-std::uint64_t br_lemire_oneill ( Rng & rng, std::uint64_t range ) noexcept {
+template<> struct double_width_integer<std::uint64_t> { using type = std::uint64_t; }; // dummy.
+
+template<typename Rng, typename Type, typename ResultType = Type>
+ResultType br_lemire_oneill ( Rng & rng, Type range ) noexcept {
+    if constexpr ( std::is_same<Type, std::uint64_t>::value ) {
+        unsigned_result_type<ResultType> x = rng ( );
+        if ( range >= ( unsigned_result_type<ResultType> { 1 } << ( sizeof ( unsigned_result_type<ResultType> ) * 8 - 1 ) ) ) {
+            do {
+                x = rng ( );
+            } while ( x >= range );
+            return ResultType ( x );
+        }
+        unsigned_result_type<ResultType> h, l = _umul128 ( x, range, &h );
+        if ( l < range ) {
+            unsigned_result_type<ResultType> t = 0 - range;
+            t -= range;
+            if ( t >= range ) {
+                t %= range;
+            }
+            while ( l < t ) {
+                l = _umul128 ( rng ( ), range, &h );
+            }
+        }
+        return ResultType ( h );
+    }
+    else {
+        using double_width_unsigned_result_type = typename double_width_integer<unsigned_result_type<ResultType>>::type;
+        unsigned_result_type<ResultType> x = rng ( );
+        if ( range >= ( unsigned_result_type<ResultType> { 1 } << ( sizeof ( unsigned_result_type<ResultType> ) * 8 - 1 ) ) ) {
+            do {
+                x = rng ( );
+            } while ( x >= range );
+            return ResultType ( x );
+        }
+        double_width_unsigned_result_type m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( range );
+        unsigned_result_type<ResultType> l = unsigned_result_type<ResultType> ( m );
+        if ( l < range ) {
+            unsigned_result_type<ResultType> t = -range;
+            t -= range;
+            if ( t >= range ) {
+                t %= range;
+            }
+            while ( l < t ) {
+                x = rng ( );
+                m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( range );
+                l = unsigned_result_type<ResultType> ( m );
+            }
+        }
+        return ResultType ( m >> std::numeric_limits<unsigned_result_type<ResultType>>::digits );
+    }
+}
+#endif
+#else
+template<typename Rng, typename Type, typename ResultType = Type>
+ResultType br_lemire_oneill ( Rng & rng, Type range ) noexcept {
+    using double_width_unsigned_result_type = typename double_width_integer<unsigned_result_type<ResultType>>::type;
     unsigned_result_type<ResultType> x = rng ( );
     if ( range >= ( unsigned_result_type<ResultType> { 1 } << ( sizeof ( unsigned_result_type<ResultType> ) * 8 - 1 ) ) ) {
         do {
@@ -287,25 +348,27 @@ std::uint64_t br_lemire_oneill ( Rng & rng, std::uint64_t range ) noexcept {
         } while ( x >= range );
         return ResultType ( x );
     }
-    unsigned_result_type<ResultType> h, l = _umul128 ( x, range, &h );
+    double_width_unsigned_result_type m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( range );
+    unsigned_result_type<ResultType> l = unsigned_result_type<ResultType> ( m );
     if ( l < range ) {
-        unsigned_result_type<ResultType> t = 0 - range;
+        unsigned_result_type<ResultType> t = -range;
         t -= range;
         if ( t >= range ) {
             t %= range;
         }
         while ( l < t ) {
-            l = _umul128 ( rng ( ), range, &h );
+            x = rng ( );
+            m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( range );
+            l = unsigned_result_type<ResultType> ( m );
         }
     }
-    return ResultType ( h );
+    return ResultType ( m >> std::numeric_limits<unsigned_result_type<ResultType>>::digits );
 }
-#endif
 #endif
 #if MEMORY_MODEL_64
 #if GNU
-template<typename Rng, typename ResultType = std::uint64_t>
-std::uint64_t br_lemire ( Rng & rng, std::uint64_t range ) noexcept {
+template<typename Rng, typename Type, typename ResultType = Type>
+ResultType br_lemire ( Rng & rng, Type range ) noexcept {
     using double_width_unsigned_result_type = typename double_width_integer<unsigned_result_type<ResultType>>::type;
     unsigned_result_type<ResultType> t = ( 0 - range ) % range;
     unsigned_result_type<ResultType> x = rng ( );
@@ -319,64 +382,98 @@ std::uint64_t br_lemire ( Rng & rng, std::uint64_t range ) noexcept {
     return ResultType ( m >> std::numeric_limits<unsigned_result_type<ResultType>>::digits );
 }
 #else
-template<typename Rng, typename ResultType = std::uint64_t>
-std::uint64_t br_lemire ( Rng & rng, std::uint64_t range ) noexcept {
-    unsigned_result_type<ResultType> t = ( 0 - range ) % range;
-    unsigned_result_type<ResultType> x = rng ( );
-    unsigned_result_type<ResultType> h, l = _umul128 ( x, range, &h );
-    while ( l < t ) {
-        x = rng ( );
-        l = _umul128 ( x, range, &h );
-    };
-    return ResultType ( h );
+template<typename Rng, typename Type, typename ResultType = Type>
+ResultType br_lemire ( Rng & rng, Type range ) noexcept {
+    if constexpr ( std::is_same<Type, std::uint64_t>::value ) {
+        unsigned_result_type<ResultType> t = ( 0 - range ) % range;
+        unsigned_result_type<ResultType> x = rng ( );
+        unsigned_result_type<ResultType> h, l = _umul128 ( x, range, &h );
+        while ( l < t ) {
+            x = rng ( );
+            l = _umul128 ( x, range, &h );
+        };
+        return ResultType ( h );
+    }
+    else {
+        using double_width_unsigned_result_type = typename double_width_integer<unsigned_result_type<ResultType>>::type;
+        unsigned_result_type<ResultType> t = ( 0 - range ) % range;
+        unsigned_result_type<ResultType> x = rng ( );
+        double_width_unsigned_result_type m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( range );
+        unsigned_result_type<ResultType> l = unsigned_result_type<ResultType> ( m );
+        while ( l < t ) {
+            x = rng ( );
+            m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( range );
+            l = unsigned_result_type<ResultType> ( m );
+        };
+        return ResultType ( m >> std::numeric_limits<unsigned_result_type<ResultType>>::digits );
+    }
 }
 #endif
+#else
+template<typename Rng, typename Type, typename ResultType = Type>
+ResultType br_lemire ( Rng & rng, Type range ) noexcept {
+    using double_width_unsigned_result_type = typename double_width_integer<unsigned_result_type<ResultType>>::type;
+    unsigned_result_type<ResultType> t = ( 0 - range ) % range;
+    unsigned_result_type<ResultType> x = rng ( );
+    double_width_unsigned_result_type m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( range );
+    unsigned_result_type<ResultType> l = unsigned_result_type<ResultType> ( m );
+    while ( l < t ) {
+        x = rng ( );
+        m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( range );
+        l = unsigned_result_type<ResultType> ( m );
+    };
+    return ResultType ( m >> std::numeric_limits<unsigned_result_type<ResultType>>::digits );
+}
 #endif
 
-#define BM_BR_TEMPLATE( name, func, shift ) \
+#define BM_BR_TEMPLATE( name, func, shift, generator ) \
 template<class Gen> \
 void func ( benchmark::State & state ) noexcept { \
+    using result_type = typename Gen::result_type; \
     static std::uint64_t seed = 0xBE1C0467EBA5FAC; \
     seed *= 0x1AEC805299990163; \
     seed ^= ( seed >> 32 ); \
-    Gen gen ( seed ); \
+    Gen gen ( static_cast<result_type> ( seed ) ); \
     typename Gen::result_type a = 0; \
     benchmark::DoNotOptimize ( &a ); \
     for ( auto _ : state ) { \
         for ( int i = 0; i < 128; ++i ) { \
-            a += br_##name ( gen, std::uint64_t { 1 } << state.range ( 0 ) ); \
+            a += br_##name ( gen, result_type { 1 } << state.range ( 0 ) ); \
+            benchmark::ClobberMemory ( ); \
         } \
     } \
 } \
-BENCHMARK_TEMPLATE ( func, splitmix64 ) \
+BENCHMARK_TEMPLATE ( func, generator ) \
 ->Repetitions ( 8 ) \
 ->ReportAggregatesOnly ( true ) \
 ->Arg ( shift );
 
 #define FUNC( name, shift, compiler ) CAT7 ( bm_bounded_rand, _, name, _, shift, _, compiler )
-#define BM_BR_F_TEMPLATE( name, shift ) BM_BR_TEMPLATE ( name, FUNC ( name, shift, COMPILER ), shift )
+#define BM_BR_F_TEMPLATE( name, shift, generator ) BM_BR_TEMPLATE ( name, FUNC ( name, shift, COMPILER ), shift, generator )
 
 
 #if MEMORY_MODEL_64
 #define BM_BR_F_N( N ) \
-BM_BR_F_TEMPLATE ( stl, N ) \
-BM_BR_F_TEMPLATE ( lemire, N ) \
-BM_BR_F_TEMPLATE ( lemire_oneill, N ) \
-BM_BR_F_TEMPLATE ( bitmask, N ) \
-BM_BR_F_TEMPLATE ( bitmask_alt, N ) \
-BM_BR_F_TEMPLATE ( modx1, N ) \
-BM_BR_F_TEMPLATE ( modx2_topt, N ) \
-BM_BR_F_TEMPLATE ( modx1_mopt, N ) \
-BM_BR_F_TEMPLATE ( modx2_topt_moptx2, N )
+BM_BR_F_TEMPLATE ( stl, N, splitmix64 ) \
+BM_BR_F_TEMPLATE ( lemire, N, splitmix64 ) \
+BM_BR_F_TEMPLATE ( lemire_oneill, N, splitmix64 ) \
+BM_BR_F_TEMPLATE ( bitmask, N, splitmix64 ) \
+BM_BR_F_TEMPLATE ( bitmask_alt, N, splitmix64 ) \
+BM_BR_F_TEMPLATE ( modx1, N, splitmix64 ) \
+BM_BR_F_TEMPLATE ( modx2_topt, N, splitmix64 ) \
+BM_BR_F_TEMPLATE ( modx1_mopt, N, splitmix64 ) \
+BM_BR_F_TEMPLATE ( modx2_topt_moptx2, N, splitmix64 )
 #else
 #define BM_BR_F_N( N ) \
-BM_BR_F_TEMPLATE ( stl, N ) \
-BM_BR_F_TEMPLATE ( bitmask, N ) \
-BM_BR_F_TEMPLATE ( bitmask_alt, N ) \
-BM_BR_F_TEMPLATE ( modx1, N ) \
-BM_BR_F_TEMPLATE ( modx2_topt, N ) \
-BM_BR_F_TEMPLATE ( modx1_mopt, N ) \
-BM_BR_F_TEMPLATE ( modx2_topt_moptx2, N )
+BM_BR_F_TEMPLATE ( stl, N, splitmix32 ) \
+BM_BR_F_TEMPLATE ( lemire, N, splitmix32 ) \
+BM_BR_F_TEMPLATE ( lemire_oneill, N, splitmix32 ) \
+BM_BR_F_TEMPLATE ( bitmask, N, splitmix32 ) \
+BM_BR_F_TEMPLATE ( bitmask_alt, N, splitmix32 ) \
+BM_BR_F_TEMPLATE ( modx1, N, splitmix32 ) \
+BM_BR_F_TEMPLATE ( modx2_topt, N, splitmix32 ) \
+BM_BR_F_TEMPLATE ( modx1_mopt, N, splitmix32 ) \
+BM_BR_F_TEMPLATE ( modx2_topt_moptx2, N, splitmix32 )
 #endif
 
 #if 1
