@@ -105,6 +105,15 @@ unsigned char _BitScanReverse64 ( unsigned long *, unsigned long long );
 #endif
 #endif
 
+#if GNU
+static void escape ( void * p ) {
+    asm volatile ( "" : : "g"(p) : "memory" );
+}
+static void clobber ( ) {
+    asm volatile ( "" : : : "memory" );
+}
+#endif
+
 #define CAT7( V1, V2, V3, V4, V5, V6, V7 ) V1 ## V2 ## V3 ## V4 ## V5 ## V6 ## V7
 
 namespace detail {
@@ -508,6 +517,7 @@ BM_BR_F_N ( 28 )
 BM_BR_F_N ( 29 )
 BM_BR_F_N ( 30 )
 BM_BR_F_N ( 31 )
+#if MEMORY_MODEL_64
 BM_BR_F_N ( 32 )
 BM_BR_F_N ( 33 )
 BM_BR_F_N ( 34 )
@@ -540,12 +550,15 @@ BM_BR_F_N ( 60 )
 BM_BR_F_N ( 61 )
 BM_BR_F_N ( 62 )
 BM_BR_F_N ( 63 )
+#endif
 #else
 BM_BR_F_N ( 1 )
 BM_BR_F_N ( 2 )
 BM_BR_F_N ( 4 )
 BM_BR_F_N ( 8 )
 BM_BR_F_N ( 16 )
+BM_BR_F_N ( 31 )
+#if MEMORY_MODEL_64
 BM_BR_F_N ( 32 )
 BM_BR_F_N ( 48 )
 #if COMPILER == clang_x64
@@ -565,4 +578,5 @@ BM_BR_F_N ( 61 )
 BM_BR_F_N ( 62 )
 #endif
 BM_BR_F_N ( 63 )
+#endif
 #endif
