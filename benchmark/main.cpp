@@ -280,7 +280,7 @@ ResultType br_lemire_oneill ( Rng & rng, Type range ) noexcept {
     double_width_unsigned_result_type m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( range );
     unsigned_result_type<ResultType> l = unsigned_result_type<ResultType> ( m );
     if ( l < range ) {
-        unsigned_result_type<ResultType> t = -range;
+        unsigned_result_type<ResultType> t = ( 0 - range );
         t -= range;
         if ( t >= range ) {
             t %= range;
@@ -308,7 +308,7 @@ ResultType br_lemire_oneill ( Rng & rng, Type range ) noexcept {
         }
         unsigned_result_type<ResultType> h, l = _umul128 ( x, range, &h );
         if ( l < range ) {
-            unsigned_result_type<ResultType> t = 0 - range;
+            unsigned_result_type<ResultType> t = ( 0 - range );
             t -= range;
             if ( t >= range ) {
                 t %= range;
@@ -331,7 +331,7 @@ ResultType br_lemire_oneill ( Rng & rng, Type range ) noexcept {
         double_width_unsigned_result_type m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( range );
         unsigned_result_type<ResultType> l = unsigned_result_type<ResultType> ( m );
         if ( l < range ) {
-            unsigned_result_type<ResultType> t = -range;
+            unsigned_result_type<ResultType> t = ( 0 - range );
             t -= range;
             if ( t >= range ) {
                 t %= range;
