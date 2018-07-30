@@ -21,6 +21,14 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+#if !defined ( _DEBUG )
+#define NOEXCEPT
+#define _HAS_EXCEPTIONS 0
+#else
+#define NOEXCEPT noexcept
+#endif
+
+#include <intrin.h>
 #include <cassert>
 #include <ciso646>
 #include <cstddef>
@@ -30,15 +38,6 @@
 #include <limits>
 #include <random>
 #include <type_traits>
-
-#include <intrin.h>
-
-#pragma intrinsic ( _BitScanReverse )
-#ifdef _WIN64
-#pragma intrinsic ( _BitScanReverse64 )
-#else
-unsigned char _BitScanReverse64 ( unsigned long *, unsigned long long );
-#endif
 
 
 #include <benchmark/benchmark.h>
@@ -141,7 +140,7 @@ __attribute__ ( ( always_inline ) ) int leading_zeros_intrin_32 ( large x ) {
 #endif
 }
 
-std::uint32_t leading_zeros_intrin ( std::uint32_t x ) noexcept {
+std::uint32_t leading_zeros_intrin ( std::uint32_t x ) NOEXCEPT {
     #if MSVC
     unsigned long c;
     _BitScanReverse ( &c, x );
@@ -151,7 +150,7 @@ std::uint32_t leading_zeros_intrin ( std::uint32_t x ) noexcept {
     #endif
 }
 
-std::uint32_t leading_zeros_intrin ( std::uint64_t x ) noexcept {
+std::uint32_t leading_zeros_intrin ( std::uint64_t x ) NOEXCEPT {
     if constexpr ( MEMORY_MODEL_32 ) {
         return detail::leading_zeros_intrin_32 ( *reinterpret_cast<detail::large*> ( &x ) );
     }
@@ -167,12 +166,12 @@ std::uint32_t leading_zeros_intrin ( std::uint64_t x ) noexcept {
 }
 
 template<typename Rng, typename Type>
-Type br_stl ( Rng & rng, Type range ) noexcept {
+Type br_stl ( Rng & rng, Type range ) NOEXCEPT {
     return std::uniform_int_distribution<Type> ( 0, range - 1 ) ( rng );
 }
 
 template<typename Rng, typename Type>
-Type br_debiased_div ( Rng & rng, Type range ) noexcept {
+Type br_debiased_div ( Rng & rng, Type range ) NOEXCEPT {
     const Type divisor = ( ( 0 - range ) / range ) + 1;
     if ( divisor == 0 ) {
         return 0;
@@ -186,7 +185,7 @@ Type br_debiased_div ( Rng & rng, Type range ) noexcept {
 }
 
 template<typename Rng, typename Type>
-Type br_bitmask ( Rng & rng, Type range ) noexcept {
+Type br_bitmask ( Rng & rng, Type range ) NOEXCEPT {
     --range;
     Type mask = std::numeric_limits<Type>::max ( );
     mask >>= leading_zeros_intrin ( range | Type { 1 } );
@@ -198,7 +197,7 @@ Type br_bitmask ( Rng & rng, Type range ) noexcept {
 }
 
 template<typename Rng, typename Type>
-Type br_bitmask_alt ( Rng & rng, Type range_ ) noexcept {
+Type br_bitmask_alt ( Rng & rng, Type range_ ) NOEXCEPT {
     --range_;
     std::uint32_t zeros = leading_zeros_intrin ( range_ | Type { 1 } );
     const Type mask = std::numeric_limits<Type>::max ( ) >> zeros;
@@ -222,7 +221,7 @@ Type br_bitmask_alt ( Rng & rng, Type range_ ) noexcept {
 
 
 template<typename Rng, typename Type>
-Type br_modx1 ( Rng & rng, Type range ) noexcept {
+Type br_modx1 ( Rng & rng, Type range ) NOEXCEPT {
     Type x, r;
     do {
         x = rng ( );
@@ -232,7 +231,7 @@ Type br_modx1 ( Rng & rng, Type range ) noexcept {
 }
 
 template<typename Rng, typename Type>
-Type br_modx1_bopt ( Rng & rng, Type range ) noexcept {
+Type br_modx1_bopt ( Rng & rng, Type range ) NOEXCEPT {
     Type x, r;
     if ( range >= Type { 1 } << ( std::numeric_limits<Type>::digits - 1 ) ) {
         do {
@@ -248,7 +247,7 @@ Type br_modx1_bopt ( Rng & rng, Type range ) noexcept {
 }
 
 template<typename Rng, typename Type>
-Type br_modx1_mopt ( Rng & rng, Type range ) noexcept {
+Type br_modx1_mopt ( Rng & rng, Type range ) NOEXCEPT {
     Type x, r;
     do {
         x = rng ( );
@@ -263,7 +262,7 @@ Type br_modx1_mopt ( Rng & rng, Type range ) noexcept {
 }
 
 template<typename Rng, typename Type>
-Type br_debiased_modx2 ( Rng & rng, Type range ) noexcept {
+Type br_debiased_modx2 ( Rng & rng, Type range ) NOEXCEPT {
     Type t = ( 0 - range ) % range;
     while ( true ) {
         Type r = rng ( );
@@ -274,7 +273,7 @@ Type br_debiased_modx2 ( Rng & rng, Type range ) noexcept {
 }
 
 template<typename Rng, typename Type>
-Type br_modx2_topt ( Rng & rng, Type range ) noexcept {
+Type br_modx2_topt ( Rng & rng, Type range ) NOEXCEPT {
     Type r = rng ( );
     if ( r < range ) {
         Type t = ( 0 - range ) % range;
@@ -285,7 +284,7 @@ Type br_modx2_topt ( Rng & rng, Type range ) noexcept {
 }
 
 template<typename Rng, typename Type>
-Type br_modx2_topt_bopt ( Rng & rng, Type range ) noexcept {
+Type br_modx2_topt_bopt ( Rng & rng, Type range ) NOEXCEPT {
     Type r = rng ( );
     if ( range >= Type { 1 } << ( std::numeric_limits<Type>::digits - 1 ) ) {
         while ( r >= range ) {
@@ -303,7 +302,7 @@ Type br_modx2_topt_bopt ( Rng & rng, Type range ) noexcept {
 }
 
 template<typename Rng, typename Type>
-Type br_modx2_topt_mopt ( Rng & rng, Type range ) noexcept {
+Type br_modx2_topt_mopt ( Rng & rng, Type range ) NOEXCEPT {
     Type r = rng ( );
     if ( r < range ) {
         Type t = ( 0 - range );
@@ -321,7 +320,7 @@ Type br_modx2_topt_mopt ( Rng & rng, Type range ) noexcept {
 }
 
 template<typename Rng, typename Type>
-Type br_modx2_topt_moptx2 ( Rng & rng, Type range ) noexcept {
+Type br_modx2_topt_moptx2 ( Rng & rng, Type range ) NOEXCEPT {
     Type r = rng ( );
     if ( r < range ) {
         Type t = ( 0 - range );
@@ -352,7 +351,7 @@ template<> struct double_width_integer<std::uint32_t> { using type = std::uint64
 template<> struct double_width_integer<std::uint64_t> { using type = __uint128_t; };
 
 template<typename Rng, typename Type, typename ResultType = Type>
-ResultType br_lemire_oneill ( Rng & rng, Type range ) noexcept {
+ResultType br_lemire_oneill ( Rng & rng, Type range ) NOEXCEPT {
     using double_width_unsigned_result_type = typename double_width_integer<unsigned_result_type<ResultType>>::type;
     unsigned_result_type<ResultType> x = rng ( );
     if ( range >= ( unsigned_result_type<ResultType> { 1 } << ( sizeof ( unsigned_result_type<ResultType> ) * 8 - 1 ) ) ) {
@@ -381,7 +380,7 @@ ResultType br_lemire_oneill ( Rng & rng, Type range ) noexcept {
 template<> struct double_width_integer<std::uint64_t> { using type = std::uint64_t; }; // dummy.
 
 template<typename Rng, typename Type, typename ResultType = Type>
-ResultType br_lemire_oneill ( Rng & rng, Type range ) noexcept {
+ResultType br_lemire_oneill ( Rng & rng, Type range ) NOEXCEPT {
     if constexpr ( std::is_same<Type, std::uint64_t>::value ) {
         unsigned_result_type<ResultType> x = rng ( );
         if ( range >= ( unsigned_result_type<ResultType> { 1 } << ( sizeof ( unsigned_result_type<ResultType> ) * 8 - 1 ) ) ) {
@@ -432,7 +431,7 @@ ResultType br_lemire_oneill ( Rng & rng, Type range ) noexcept {
 #endif
 #else
 template<typename Rng, typename Type, typename ResultType = Type>
-ResultType br_lemire_oneill ( Rng & rng, Type range ) noexcept {
+ResultType br_lemire_oneill ( Rng & rng, Type range ) NOEXCEPT {
     using double_width_unsigned_result_type = typename double_width_integer<unsigned_result_type<ResultType>>::type;
     unsigned_result_type<ResultType> x = rng ( );
     if ( range >= ( unsigned_result_type<ResultType> { 1 } << ( sizeof ( unsigned_result_type<ResultType> ) * 8 - 1 ) ) ) {
@@ -461,9 +460,9 @@ ResultType br_lemire_oneill ( Rng & rng, Type range ) noexcept {
 #if MEMORY_MODEL_64
 #if GNU
 template<typename Rng, typename Type, typename ResultType = Type>
-ResultType br_lemire ( Rng & rng, Type range ) noexcept {
+ResultType br_lemire ( Rng & rng, Type range ) NOEXCEPT {
     using double_width_unsigned_result_type = typename double_width_integer<unsigned_result_type<ResultType>>::type;
-    unsigned_result_type<ResultType> t = ( 0 - range ) % range;
+    const unsigned_result_type<ResultType> t = ( 0 - range ) % range;
     unsigned_result_type<ResultType> x = rng ( );
     double_width_unsigned_result_type m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( range );
     unsigned_result_type<ResultType> l = unsigned_result_type<ResultType> ( m );
@@ -476,9 +475,9 @@ ResultType br_lemire ( Rng & rng, Type range ) noexcept {
 }
 #else
 template<typename Rng, typename Type, typename ResultType = Type>
-ResultType br_lemire ( Rng & rng, Type range ) noexcept {
+ResultType br_lemire ( Rng & rng, Type range ) NOEXCEPT {
     if constexpr ( std::is_same<Type, std::uint64_t>::value ) {
-        unsigned_result_type<ResultType> t = ( 0 - range ) % range;
+        const unsigned_result_type<ResultType> t = ( 0 - range ) % range;
         unsigned_result_type<ResultType> x = rng ( );
         unsigned_result_type<ResultType> h, l = _umul128 ( x, range, &h );
         while ( l < t ) {
@@ -489,7 +488,7 @@ ResultType br_lemire ( Rng & rng, Type range ) noexcept {
     }
     else {
         using double_width_unsigned_result_type = typename double_width_integer<unsigned_result_type<ResultType>>::type;
-        unsigned_result_type<ResultType> t = ( 0 - range ) % range;
+        const unsigned_result_type<ResultType> t = ( 0 - range ) % range;
         unsigned_result_type<ResultType> x = rng ( );
         double_width_unsigned_result_type m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( range );
         unsigned_result_type<ResultType> l = unsigned_result_type<ResultType> ( m );
@@ -504,9 +503,9 @@ ResultType br_lemire ( Rng & rng, Type range ) noexcept {
 #endif
 #else
 template<typename Rng, typename Type, typename ResultType = Type>
-ResultType br_lemire ( Rng & rng, Type range ) noexcept {
+ResultType br_lemire ( Rng & rng, Type range ) NOEXCEPT {
     using double_width_unsigned_result_type = typename double_width_integer<unsigned_result_type<ResultType>>::type;
-    unsigned_result_type<ResultType> t = ( 0 - range ) % range;
+    const unsigned_result_type<ResultType> t = ( 0 - range ) % range;
     unsigned_result_type<ResultType> x = rng ( );
     double_width_unsigned_result_type m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( range );
     unsigned_result_type<ResultType> l = unsigned_result_type<ResultType> ( m );
@@ -521,7 +520,7 @@ ResultType br_lemire ( Rng & rng, Type range ) noexcept {
 
 #define BM_BR_TEMPLATE( name, func, shift, generator ) \
 template<class Gen> \
-void func ( benchmark::State & state ) noexcept { \
+void func ( benchmark::State & state ) NOEXCEPT { \
     using result_type = typename Gen::result_type; \
     static std::uint64_t seed = 0xBE1C0467EBA5FAC; \
     seed *= 0x1AEC805299990163; \
