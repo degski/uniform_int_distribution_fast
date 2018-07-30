@@ -39,6 +39,16 @@
 #include <cstddef>
 #include <cstdint>
 
+#if UINTPTR_MAX == 0xFFFF'FFFF
+#define MEMORY_MODEL_32 1
+#define MEMORY_MODEL_64 0
+#elif UINTPTR_MAX == 0xFFFF'FFFF'FFFF'FFFF
+#define MEMORY_MODEL_32 0
+#define MEMORY_MODEL_64 1
+#else
+#error funny pointers
+#endif
+
 #include <iostream>
 #include <limits>
 #include <random>
@@ -75,16 +85,6 @@ unsigned char _BitScanReverse64 ( unsigned long *, unsigned long long );
 unsigned __int64 _umul128 ( unsigned __int64 Multiplier, unsigned __int64 Multiplicand, unsigned __int64 *HighProduct );
 unsigned char _BitScanReverse ( unsigned long *, unsigned long );
 unsigned char _BitScanReverse64 ( unsigned long *, unsigned long long );
-#endif
-
-#if UINTPTR_MAX == 0xFFFF'FFFF
-#define MEMORY_MODEL_32 1
-#define MEMORY_MODEL_64 0
-#elif UINTPTR_MAX == 0xFFFF'FFFF'FFFF'FFFF
-#define MEMORY_MODEL_32 0
-#define MEMORY_MODEL_64 1
-#else
-#error funny pointers
 #endif
 
 #if MEMORY_MODEL_32
