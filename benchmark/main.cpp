@@ -234,7 +234,7 @@ Type br_modx1 ( Rng & rng, Type range ) noexcept {
 template<typename Rng, typename Type>
 Type br_modx1_bopt ( Rng & rng, Type range ) noexcept {
     Type x, r;
-    if ( range >= Type << ( std::numeric_limits<Type>::digits - 1 ) ) {
+    if ( range >= Type { 1 } << ( std::numeric_limits<Type>::digits - 1 ) ) {
         do {
             r = rng ( );
         } while ( r >= range );
@@ -287,7 +287,7 @@ Type br_modx2_topt ( Rng & rng, Type range ) noexcept {
 template<typename Rng, typename Type>
 Type br_modx2_topt_bopt ( Rng & rng, Type range ) noexcept {
     Type r = rng ( );
-    if ( range >= Type << ( std::numeric_limits<Type>::digits - 1 ) ) {
+    if ( range >= Type { 1 } << ( std::numeric_limits<Type>::digits - 1 ) ) {
         while ( r >= range ) {
             r = rng ( );
         }
@@ -552,7 +552,6 @@ BENCHMARK_TEMPLATE ( func, generator ) \
 BM_BR_F_TEMPLATE ( stl, N, splitmix64 ) \
 BM_BR_F_TEMPLATE ( lemire, N, splitmix64 ) \
 BM_BR_F_TEMPLATE ( lemire_oneill, N, splitmix64 ) \
-BM_BR_F_TEMPLATE ( debiased_div, N, splitmix64 ) \
 BM_BR_F_TEMPLATE ( bitmask, N, splitmix64 ) \
 BM_BR_F_TEMPLATE ( bitmask_alt, N, splitmix64 ) \
 BM_BR_F_TEMPLATE ( modx1, N, splitmix64 ) \
@@ -568,7 +567,6 @@ BM_BR_F_TEMPLATE ( modx2_topt_moptx2, N, splitmix64 )
 BM_BR_F_TEMPLATE ( stl, N, splitmix32 ) \
 BM_BR_F_TEMPLATE ( lemire, N, splitmix32 ) \
 BM_BR_F_TEMPLATE ( lemire_oneill, N, splitmix32 ) \
-BM_BR_F_TEMPLATE ( debiased_div, N, splitmix32 ) \
 BM_BR_F_TEMPLATE ( bitmask, N, splitmix32 ) \
 BM_BR_F_TEMPLATE ( bitmask_alt, N, splitmix32 ) \
 BM_BR_F_TEMPLATE ( modx1, N, splitmix32 ) \
@@ -580,7 +578,7 @@ BM_BR_F_TEMPLATE ( modx2_topt_bopt, N, splitmix32 ) \
 BM_BR_F_TEMPLATE ( modx2_topt_mopt, N, splitmix32 ) \
 BM_BR_F_TEMPLATE ( modx2_topt_moptx2, N, splitmix32 )
 #endif
-
+// BM_BR_F_TEMPLATE ( debiased_div, N, splitmix32 )
 #if 0
 BM_BR_F_N (  1 )
 BM_BR_F_N (  2 )
