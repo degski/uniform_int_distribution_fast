@@ -21,11 +21,16 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #if !defined ( _DEBUG )
 #define NOEXCEPT
 #define _HAS_EXCEPTIONS 0
 #else
 #define NOEXCEPT noexcept
+#endif
 #endif
 
 #include <intrin.h>
@@ -113,7 +118,6 @@ static void clobber ( ) {
 }
 #endif
 
-#define CAT7( V1, V2, V3, V4, V5, V6, V7 ) V1 ## V2 ## V3 ## V4 ## V5 ## V6 ## V7
 
 namespace detail {
 
@@ -542,6 +546,7 @@ BENCHMARK_TEMPLATE ( func, generator ) \
 // benchmark::DoNotOptimize ( &a );
 // benchmark::ClobberMemory ( );
 
+#define CAT7( V1, V2, V3, V4, V5, V6, V7 ) V1 ## V2 ## V3 ## V4 ## V5 ## V6 ## V7
 #define FUNC( name, shift, compiler ) CAT7 ( bm_bounded_rand, _, name, _, shift, _, compiler )
 #define BM_BR_F_TEMPLATE( name, shift, generator ) BM_BR_TEMPLATE ( name, FUNC ( name, shift, COMPILER ), shift, generator )
 
@@ -645,11 +650,18 @@ BM_BR_F_N ( 62 )
 BM_BR_F_N ( 63 )
 #endif
 #else
-BM_BR_F_N ( 1 )
-BM_BR_F_N ( 2 )
-BM_BR_F_N ( 4 )
-BM_BR_F_N ( 8 )
+BM_BR_F_N (  1 )
+BM_BR_F_N (  2 )
+BM_BR_F_N (  4 )
+BM_BR_F_N (  8 )
 BM_BR_F_N ( 16 )
+BM_BR_F_N ( 24 )
+BM_BR_F_N ( 25 )
+BM_BR_F_N ( 26 )
+BM_BR_F_N ( 27 )
+BM_BR_F_N ( 28 )
+BM_BR_F_N ( 29 )
+BM_BR_F_N ( 30 )
 BM_BR_F_N ( 31 )
 #if MEMORY_MODEL_64
 BM_BR_F_N ( 32 )
