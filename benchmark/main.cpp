@@ -142,13 +142,13 @@ __attribute__ ( ( always_inline ) ) int leading_zeros_intrin_32 ( large x ) {
 }
 
 std::uint32_t leading_zeros_intrin ( std::uint32_t x ) noexcept {
-#if MSVC
+    #if MSVC
     unsigned long c;
     _BitScanReverse ( &c, x );
     return 63u - c;
-#else
-    return __builtin_clz ( x );
-#endif
+    #else
+        return __builtin_clz ( x );
+    #endif
 }
 
 std::uint32_t leading_zeros_intrin ( std::uint64_t x ) noexcept {
@@ -161,7 +161,7 @@ std::uint32_t leading_zeros_intrin ( std::uint64_t x ) noexcept {
         _BitScanReverse64 ( &c, x );
         return 63u - c;
         #else
-        return __builtin_clzll ( x );
+            return __builtin_clzll ( x );
         #endif
     }
 }
@@ -170,6 +170,33 @@ template<typename Rng, typename Type>
 Type br_stl ( Rng & rng, Type range ) noexcept {
     return std::uniform_int_distribution<Type> ( 0, range - 1 ) ( rng );
 }
+
+template<typename Rng, typename Type>
+Type br_debiased_div ( Rng & rng, Type range ) noexcept {
+    const Type divisor = ( ( 0 - range ) / range ) + 1;
+    if ( divisor == 0 ) {
+        return 0;
+    }
+    while ( true ) {
+        Type val = rng ( ) / divisor;
+        if ( val < range ) {
+            return val;
+        }
+    }
+}
+
+template<typename Rng, typename Type>
+Type br_bitmask ( Rng & rng, Type range ) noexcept {
+    --range;
+    Type mask = std::numeric_limits<Type>::max ( );
+    mask >>= leading_zeros_intrin ( range | Type { 1 } );
+    Type x;
+    do {
+        x = rng ( ) & mask;
+    } while ( x > range );
+    return x;
+}
+
 template<typename Rng, typename Type>
 Type br_bitmask_alt ( Rng & rng, Type range_ ) noexcept {
     --range_;
@@ -192,8 +219,62 @@ Type br_bitmask_alt ( Rng & rng, Type range_ ) noexcept {
         }
     }
 }
+
+
 template<typename Rng, typename Type>
-Type br_modx2_topt ( Rng & rng, Type range ) {
+Type br_modx1 ( Rng & rng, Type range ) noexcept {
+    Type x, r;
+    do {
+        x = rng ( );
+        r = x % range;
+    } while ( x - r > Type ( 0 - range ) );
+    return r;
+}
+
+template<typename Rng, typename Type>
+Type br_modx1_bopt ( Rng & rng, Type range ) noexcept {
+    Type x, r;
+    if ( range >= Type << ( std::numeric_limits<Type>::digits - 1 ) ) {
+        do {
+            r = rng ( );
+        } while ( r >= range );
+        return r;
+    }
+    do {
+        x = rng ( );
+        r = x % range;
+    } while ( x - r > Type ( 0 - range ) );
+    return r;
+}
+
+template<typename Rng, typename Type>
+Type br_modx1_mopt ( Rng & rng, Type range ) noexcept {
+    Type x, r;
+    do {
+        x = rng ( );
+        r = x;
+        if ( r >= range ) {
+            r -= range;
+            if ( r >= range )
+                r %= range;
+        }
+    } while ( x - r > Type ( 0 - range ) );
+    return r;
+}
+
+template<typename Rng, typename Type>
+Type br_debiased_modx2 ( Rng & rng, Type range ) noexcept {
+    Type t = ( 0 - range ) % range;
+    while ( true ) {
+        Type r = rng ( );
+        if ( r >= t ) {
+            return r % range;
+        }
+    }
+}
+
+template<typename Rng, typename Type>
+Type br_modx2_topt ( Rng & rng, Type range ) noexcept {
     Type r = rng ( );
     if ( r < range ) {
         Type t = ( 0 - range ) % range;
@@ -202,11 +283,48 @@ Type br_modx2_topt ( Rng & rng, Type range ) {
     }
     return r % range;
 }
+
 template<typename Rng, typename Type>
-Type br_modx2_topt_moptx2 ( Rng & rng, Type range ) {
+Type br_modx2_topt_bopt ( Rng & rng, Type range ) noexcept {
+    Type r = rng ( );
+    if ( range >= Type << ( std::numeric_limits<Type>::digits - 1 ) ) {
+        while ( r >= range ) {
+            r = rng ( );
+        }
+        return r;
+    }
+    if ( r < range ) {
+        uint64_t t = ( 0 - range ) % range;
+        while ( r < t ) {
+            r = rng ( );
+        }
+    }
+    return r % range;
+}
+
+template<typename Rng, typename Type>
+Type br_modx2_topt_mopt ( Rng & rng, Type range ) noexcept {
     Type r = rng ( );
     if ( r < range ) {
-        Type t = 0 - range;
+        Type t = ( 0 - range );
+        if ( t >= range ) {
+            t -= range;
+            if ( t >= range ) {
+                t %= range;
+            }
+        }
+        while ( r < t ) {
+            r = rng ( );
+        }
+    }
+    return r % range;
+}
+
+template<typename Rng, typename Type>
+Type br_modx2_topt_moptx2 ( Rng & rng, Type range ) noexcept {
+    Type r = rng ( );
+    if ( r < range ) {
+        Type t = ( 0 - range );
         if ( t >= range ) {
             t -= range;
             if ( t >= range )
@@ -221,40 +339,6 @@ Type br_modx2_topt_moptx2 ( Rng & rng, Type range ) {
             r %= range;
     }
     return r;
-}
-template<typename Rng, typename Type>
-Type br_modx1_mopt ( Rng & rng, Type range ) {
-    Type x, r;
-    do {
-        x = rng ( );
-        r = x;
-        if ( r >= range ) {
-            r -= range;
-            if ( r >= range )
-                r %= range;
-        }
-    } while ( x - r > Type ( 0 - range ) );
-    return r;
-}
-template<typename Rng, typename Type>
-Type br_modx1 ( Rng & rng, Type range ) {
-    Type x, r;
-    do {
-        x = rng ( );
-        r = x % range;
-    } while ( x - r > Type ( 0 - range ) );
-    return r;
-}
-template<typename Rng, typename Type>
-Type br_bitmask ( Rng & rng, Type range ) noexcept {
-    --range;
-    Type mask = std::numeric_limits<Type>::max ( );
-    mask >>= leading_zeros_intrin ( range | Type { 1 } );
-    Type x;
-    do {
-        x = rng ( ) & mask;
-    } while ( x > range );
-    return x;
 }
 
 template<typename Type>
@@ -444,7 +528,6 @@ void func ( benchmark::State & state ) noexcept { \
     seed ^= ( seed >> 32 ); \
     Gen gen ( static_cast<result_type> ( seed ) ); \
     typename Gen::result_type a = 0; \
-    benchmark::DoNotOptimize ( &a ); \
     for ( auto _ : state ) { \
         for ( int i = 0; i < 128; ++i ) { \
             a += br_##name ( gen, result_type { 1 } << state.range ( 0 ) ); \
@@ -453,9 +536,12 @@ void func ( benchmark::State & state ) noexcept { \
     } \
 } \
 BENCHMARK_TEMPLATE ( func, generator ) \
-->Repetitions ( 8 ) \
+->Repetitions ( 4 ) \
 ->ReportAggregatesOnly ( true ) \
 ->Arg ( shift );
+
+// benchmark::DoNotOptimize ( &a );
+// benchmark::ClobberMemory ( );
 
 #define FUNC( name, shift, compiler ) CAT7 ( bm_bounded_rand, _, name, _, shift, _, compiler )
 #define BM_BR_F_TEMPLATE( name, shift, generator ) BM_BR_TEMPLATE ( name, FUNC ( name, shift, COMPILER ), shift, generator )
@@ -466,26 +552,36 @@ BENCHMARK_TEMPLATE ( func, generator ) \
 BM_BR_F_TEMPLATE ( stl, N, splitmix64 ) \
 BM_BR_F_TEMPLATE ( lemire, N, splitmix64 ) \
 BM_BR_F_TEMPLATE ( lemire_oneill, N, splitmix64 ) \
+BM_BR_F_TEMPLATE ( debiased_div, N, splitmix64 ) \
 BM_BR_F_TEMPLATE ( bitmask, N, splitmix64 ) \
 BM_BR_F_TEMPLATE ( bitmask_alt, N, splitmix64 ) \
 BM_BR_F_TEMPLATE ( modx1, N, splitmix64 ) \
-BM_BR_F_TEMPLATE ( modx2_topt, N, splitmix64 ) \
+BM_BR_F_TEMPLATE ( modx1_bopt, N, splitmix64 ) \
 BM_BR_F_TEMPLATE ( modx1_mopt, N, splitmix64 ) \
+BM_BR_F_TEMPLATE ( debiased_modx2, N, splitmix64 ) \
+BM_BR_F_TEMPLATE ( modx2_topt, N, splitmix64 ) \
+BM_BR_F_TEMPLATE ( modx2_topt_bopt, N, splitmix64 ) \
+BM_BR_F_TEMPLATE ( modx2_topt_mopt, N, splitmix64 ) \
 BM_BR_F_TEMPLATE ( modx2_topt_moptx2, N, splitmix64 )
 #else
 #define BM_BR_F_N( N ) \
 BM_BR_F_TEMPLATE ( stl, N, splitmix32 ) \
 BM_BR_F_TEMPLATE ( lemire, N, splitmix32 ) \
 BM_BR_F_TEMPLATE ( lemire_oneill, N, splitmix32 ) \
+BM_BR_F_TEMPLATE ( debiased_div, N, splitmix32 ) \
 BM_BR_F_TEMPLATE ( bitmask, N, splitmix32 ) \
 BM_BR_F_TEMPLATE ( bitmask_alt, N, splitmix32 ) \
 BM_BR_F_TEMPLATE ( modx1, N, splitmix32 ) \
-BM_BR_F_TEMPLATE ( modx2_topt, N, splitmix32 ) \
+BM_BR_F_TEMPLATE ( modx1_bopt, N, splitmix32 ) \
 BM_BR_F_TEMPLATE ( modx1_mopt, N, splitmix32 ) \
+BM_BR_F_TEMPLATE ( debiased_modx2, N, splitmix64 ) \
+BM_BR_F_TEMPLATE ( modx2_topt, N, splitmix32 ) \
+BM_BR_F_TEMPLATE ( modx2_topt_bopt, N, splitmix32 ) \
+BM_BR_F_TEMPLATE ( modx2_topt_mopt, N, splitmix32 ) \
 BM_BR_F_TEMPLATE ( modx2_topt_moptx2, N, splitmix32 )
 #endif
 
-#if 1
+#if 0
 BM_BR_F_N (  1 )
 BM_BR_F_N (  2 )
 BM_BR_F_N (  3 )
@@ -562,16 +658,6 @@ BM_BR_F_N ( 31 )
 BM_BR_F_N ( 32 )
 BM_BR_F_N ( 48 )
 #if COMPILER == clang_x64
-BM_BR_F_N ( 49 )
-BM_BR_F_N ( 50 )
-BM_BR_F_N ( 51 )
-BM_BR_F_N ( 52 )
-BM_BR_F_N ( 53 )
-BM_BR_F_N ( 54 )
-BM_BR_F_N ( 55 )
-BM_BR_F_N ( 56 )
-BM_BR_F_N ( 57 )
-BM_BR_F_N ( 58 )
 BM_BR_F_N ( 59 )
 BM_BR_F_N ( 60 )
 BM_BR_F_N ( 61 )
