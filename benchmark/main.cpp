@@ -25,12 +25,13 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
+#endif
+
 #if !defined ( _DEBUG )
 #define NOEXCEPT
 #define _HAS_EXCEPTIONS 0
 #else
 #define NOEXCEPT noexcept
-#endif
 #endif
 
 #include <intrin.h>
@@ -54,6 +55,7 @@
 #include <random>
 #include <type_traits>
 
+// __builtin_expect
 
 #include <benchmark/benchmark.h>
 
@@ -63,6 +65,11 @@
 
 #include "../uid_fast/splitmix.hpp"
 
+#if MEMORY_MODEL_32
+#define splitmix splitmix32
+#else
+#define splitmix splitmix64
+#endif
 
 #if defined ( _WIN32 ) and not ( defined ( __clang__ ) or defined ( __GNUC__ ) ) // MSVC and not clang or gcc on windows.
 #include <intrin.h>
@@ -526,10 +533,8 @@ ResultType br_lemire ( Rng & rng, Type range ) NOEXCEPT {
 template<class Gen> \
 void func ( benchmark::State & state ) NOEXCEPT { \
     using result_type = typename Gen::result_type; \
-    static std::uint64_t seed = 0xBE1C0467EBA5FAC; \
-    seed *= 0x1AEC805299990163; \
-    seed ^= ( seed >> 32 ); \
-    Gen gen ( static_cast<result_type> ( seed ) ); \
+    static splitmix seeder ( 0xBE1C0467EBA5FAC ); \
+    Gen gen ( static_cast<result_type> ( seeder ( ) ) ); \
     typename Gen::result_type a = 0; \
     for ( auto _ : state ) { \
         for ( int i = 0; i < 128; ++i ) { \
@@ -550,39 +555,23 @@ BENCHMARK_TEMPLATE ( func, generator ) \
 #define FUNC( name, shift, compiler ) CAT7 ( bm_bounded_rand, _, name, _, shift, _, compiler )
 #define BM_BR_F_TEMPLATE( name, shift, generator ) BM_BR_TEMPLATE ( name, FUNC ( name, shift, COMPILER ), shift, generator )
 
+#define BM_BR_F_N( N ) \
+BM_BR_F_TEMPLATE ( stl, N, splitmix ) \
+BM_BR_F_TEMPLATE ( lemire, N, splitmix ) \
+BM_BR_F_TEMPLATE ( lemire_oneill, N, splitmix ) \
+BM_BR_F_TEMPLATE ( bitmask, N, splitmix ) \
+BM_BR_F_TEMPLATE ( bitmask_alt, N, splitmix ) \
+BM_BR_F_TEMPLATE ( modx1, N, splitmix ) \
+BM_BR_F_TEMPLATE ( modx1_bopt, N, splitmix ) \
+BM_BR_F_TEMPLATE ( modx1_mopt, N, splitmix ) \
+BM_BR_F_TEMPLATE ( debiased_modx2, N, splitmix ) \
+BM_BR_F_TEMPLATE ( modx2_topt, N, splitmix ) \
+BM_BR_F_TEMPLATE ( modx2_topt_bopt, N, splitmix ) \
+BM_BR_F_TEMPLATE ( modx2_topt_mopt, N, splitmix ) \
+BM_BR_F_TEMPLATE ( modx2_topt_moptx2, N, splitmix )
 
-#if MEMORY_MODEL_64
-#define BM_BR_F_N( N ) \
-BM_BR_F_TEMPLATE ( stl, N, splitmix64 ) \
-BM_BR_F_TEMPLATE ( lemire, N, splitmix64 ) \
-BM_BR_F_TEMPLATE ( lemire_oneill, N, splitmix64 ) \
-BM_BR_F_TEMPLATE ( bitmask, N, splitmix64 ) \
-BM_BR_F_TEMPLATE ( bitmask_alt, N, splitmix64 ) \
-BM_BR_F_TEMPLATE ( modx1, N, splitmix64 ) \
-BM_BR_F_TEMPLATE ( modx1_bopt, N, splitmix64 ) \
-BM_BR_F_TEMPLATE ( modx1_mopt, N, splitmix64 ) \
-BM_BR_F_TEMPLATE ( debiased_modx2, N, splitmix64 ) \
-BM_BR_F_TEMPLATE ( modx2_topt, N, splitmix64 ) \
-BM_BR_F_TEMPLATE ( modx2_topt_bopt, N, splitmix64 ) \
-BM_BR_F_TEMPLATE ( modx2_topt_mopt, N, splitmix64 ) \
-BM_BR_F_TEMPLATE ( modx2_topt_moptx2, N, splitmix64 )
-#else
-#define BM_BR_F_N( N ) \
-BM_BR_F_TEMPLATE ( stl, N, splitmix32 ) \
-BM_BR_F_TEMPLATE ( lemire, N, splitmix32 ) \
-BM_BR_F_TEMPLATE ( lemire_oneill, N, splitmix32 ) \
-BM_BR_F_TEMPLATE ( bitmask, N, splitmix32 ) \
-BM_BR_F_TEMPLATE ( bitmask_alt, N, splitmix32 ) \
-BM_BR_F_TEMPLATE ( modx1, N, splitmix32 ) \
-BM_BR_F_TEMPLATE ( modx1_bopt, N, splitmix32 ) \
-BM_BR_F_TEMPLATE ( modx1_mopt, N, splitmix32 ) \
-BM_BR_F_TEMPLATE ( debiased_modx2, N, splitmix64 ) \
-BM_BR_F_TEMPLATE ( modx2_topt, N, splitmix32 ) \
-BM_BR_F_TEMPLATE ( modx2_topt_bopt, N, splitmix32 ) \
-BM_BR_F_TEMPLATE ( modx2_topt_mopt, N, splitmix32 ) \
-BM_BR_F_TEMPLATE ( modx2_topt_moptx2, N, splitmix32 )
-#endif
-// BM_BR_F_TEMPLATE ( debiased_div, N, splitmix32 )
+// BM_BR_F_TEMPLATE ( debiased_div, N, splitmix )
+
 #if 0
 BM_BR_F_N (  1 )
 BM_BR_F_N (  2 )
