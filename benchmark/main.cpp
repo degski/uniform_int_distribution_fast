@@ -575,7 +575,7 @@ BM_BR_F ( modx2_topt_bopt, N ) \
 BM_BR_F ( modx2_topt_mopt, N ) \
 BM_BR_F ( modx2_topt_moptx2, N )
 
-#if 0
+#if 1
 BM_BR_F_N (  1 )
 BM_BR_F_N (  2 )
 BM_BR_F_N (  3 )
