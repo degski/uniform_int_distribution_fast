@@ -11,11 +11,11 @@ I've been testing various functions to perform the same operation, compiled with
 
 * gcc-8.1.0/mingw-5.0.4 (libstdc++)
 * clang-8.0.0-r339319 (VC STL)
-* vc-15.7.6 (VC STL)
+* vc-15.8 (VC STL)
 * google/benchmark-1.4.1-trunk
 * optimised for Intel Ci3-5005U (broadwell)
 
 Results in the benchmark folder.
 
 * The tested bitmask_alt function, although fast (generally), does however have a bug and does not generate a uniform distribution.
-* The simple bitmask functions is fastest on most platforms/compilers, with the exceptions of clang/vc on x86, where lemire_oneill is fastest for ranges under 2^27 and clang on x64 where lemire_oneill is faster for ranges under 2^59.
+* The simple bitmask function is fastest on most platforms/compilers, with the exceptions of clang/vc on x86, where lemire_oneill is fastest for ranges under 2^27 and clang on x64 where lemire_oneill is faster for ranges under 2^59.

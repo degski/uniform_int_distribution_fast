@@ -47,7 +47,7 @@
 #define MEMORY_MODEL_32 0
 #define MEMORY_MODEL_64 1
 #else
-#error funny pointers
+#error funny pointers detected
 #endif
 
 #include <iostream>
@@ -66,7 +66,8 @@
 #include "../uid_fast/splitmix.hpp"
 
 #if MEMORY_MODEL_32
-#define generator splitmix32
+#define generator splitmix64
+#include <absl/numeric/int128.h>
 #else
 #define generator splitmix64
 #endif
@@ -116,6 +117,7 @@ unsigned char _BitScanReverse64 ( unsigned long *, unsigned long long );
 #endif
 #endif
 
+
 #if GNU
 template<typename T>
 static void do_not_optimize ( T * p ) {
@@ -130,10 +132,11 @@ static void clobber_memory ( ) {
 namespace detail {
 
 struct large {
-    unsigned long low, high;
+    std::uint32_t low, high;
 };
+
 #if MSVC
-__forceinline unsigned long leading_zeros_intrin_32 ( large x ) {
+unsigned long leading_zeros_intrin_32 ( large x ) {
     unsigned long c = 0u;
     if ( not ( x.high ) ) {
         _BitScanReverse ( &c, x.low );
@@ -143,7 +146,7 @@ __forceinline unsigned long leading_zeros_intrin_32 ( large x ) {
     return 31u - c;
 }
 #else
-__attribute__ ( ( always_inline ) ) int leading_zeros_intrin_32 ( large x ) {
+int leading_zeros_intrin_32 ( large x ) {
     if ( not ( x.high ) ) {
         return __builtin_clz ( x.low ) + 32;
     }
@@ -158,7 +161,7 @@ std::uint32_t leading_zeros_intrin ( std::uint32_t x ) NOEXCEPT {
     _BitScanReverse ( &c, x );
     return 63u - c;
     #else
-        return __builtin_clz ( x );
+    return __builtin_clz ( x );
     #endif
 }
 
@@ -172,7 +175,7 @@ std::uint32_t leading_zeros_intrin ( std::uint64_t x ) NOEXCEPT {
         _BitScanReverse64 ( &c, x );
         return 63u - c;
         #else
-            return __builtin_clzll ( x );
+        return __builtin_clzll ( x );
         #endif
     }
 }
@@ -356,8 +359,13 @@ template<typename Type>
 using unsigned_result_type = typename std::make_unsigned<Type>::type;
 
 template<typename IT> struct double_width_integer { };
+template<> struct double_width_integer<std::uint8_t > { using type = std::uint16_t; };
 template<> struct double_width_integer<std::uint16_t> { using type = std::uint32_t; };
 template<> struct double_width_integer<std::uint32_t> { using type = std::uint64_t; };
+#if MEMORY_MODEL_32
+template<> struct double_width_integer<std::uint64_t> { using type = absl::uint128; };
+#endif
+
 #if MEMORY_MODEL_64
 #if GNU
 template<> struct double_width_integer<std::uint64_t> { using type = __uint128_t; };
@@ -389,8 +397,6 @@ ResultType br_lemire_oneill ( Rng & rng, Type range ) NOEXCEPT {
     return ResultType ( m >> std::numeric_limits<unsigned_result_type<ResultType>>::digits );
 }
 #else
-template<> struct double_width_integer<std::uint64_t> { using type = std::uint64_t; }; // dummy.
-
 template<typename Rng, typename Type, typename ResultType = Type>
 ResultType br_lemire_oneill ( Rng & rng, Type range ) NOEXCEPT {
     if constexpr ( std::is_same<Type, std::uint64_t>::value ) {
@@ -414,7 +420,7 @@ ResultType br_lemire_oneill ( Rng & rng, Type range ) NOEXCEPT {
         }
         return ResultType ( h );
     }
-    else {
+    else { // range is of type std::uint32_t.
         using double_width_unsigned_result_type = typename double_width_integer<unsigned_result_type<ResultType>>::type;
         unsigned_result_type<ResultType> x = rng ( );
         if ( range >= ( unsigned_result_type<ResultType> { 1 } << ( sizeof ( unsigned_result_type<ResultType> ) * 8 - 1 ) ) ) {
@@ -485,7 +491,7 @@ ResultType br_lemire ( Rng & rng, Type range ) NOEXCEPT {
     };
     return ResultType ( m >> std::numeric_limits<unsigned_result_type<ResultType>>::digits );
 }
-#else
+#else // MSVC
 template<typename Rng, typename Type, typename ResultType = Type>
 ResultType br_lemire ( Rng & rng, Type range ) NOEXCEPT {
     if constexpr ( std::is_same<Type, std::uint64_t>::value ) {
@@ -498,7 +504,7 @@ ResultType br_lemire ( Rng & rng, Type range ) NOEXCEPT {
         };
         return ResultType ( h );
     }
-    else {
+    else { // range is of type std::uint32_t.
         using double_width_unsigned_result_type = typename double_width_integer<unsigned_result_type<ResultType>>::type;
         const unsigned_result_type<ResultType> t = ( 0 - range ) % range;
         unsigned_result_type<ResultType> x = rng ( );
@@ -513,7 +519,7 @@ ResultType br_lemire ( Rng & rng, Type range ) NOEXCEPT {
     }
 }
 #endif
-#else
+#else // MEMORY_MODEL_32
 template<typename Rng, typename Type, typename ResultType = Type>
 ResultType br_lemire ( Rng & rng, Type range ) NOEXCEPT {
     using double_width_unsigned_result_type = typename double_width_integer<unsigned_result_type<ResultType>>::type;
@@ -565,7 +571,10 @@ BM_BR_F ( stl, N ) \
 BM_BR_F ( lemire, N ) \
 BM_BR_F ( lemire_oneill, N ) \
 BM_BR_F ( bitmask, N ) \
-BM_BR_F ( bitmask_alt, N ) \
+BM_BR_F ( bitmask_alt, N )
+
+/*
+\
 BM_BR_F ( modx1, N ) \
 BM_BR_F ( modx1_bopt, N ) \
 BM_BR_F ( modx1_mopt, N ) \
@@ -574,6 +583,7 @@ BM_BR_F ( modx2_topt, N ) \
 BM_BR_F ( modx2_topt_bopt, N ) \
 BM_BR_F ( modx2_topt_mopt, N ) \
 BM_BR_F ( modx2_topt_moptx2, N )
+*/
 
 #if 1
 BM_BR_F_N (  1 )
@@ -607,7 +617,7 @@ BM_BR_F_N ( 28 )
 BM_BR_F_N ( 29 )
 BM_BR_F_N ( 30 )
 BM_BR_F_N ( 31 )
-#if MEMORY_MODEL_64
+
 BM_BR_F_N ( 32 )
 BM_BR_F_N ( 33 )
 BM_BR_F_N ( 34 )
@@ -640,7 +650,7 @@ BM_BR_F_N ( 60 )
 BM_BR_F_N ( 61 )
 BM_BR_F_N ( 62 )
 BM_BR_F_N ( 63 )
-#endif
+
 #else
 BM_BR_F_N (  1 )
 BM_BR_F_N (  2 )

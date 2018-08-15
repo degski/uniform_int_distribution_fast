@@ -260,3 +260,5 @@ paket-files/
 __pycache__/
 *.pyc
 /benchmark/benchmark.exe
+/benchmark/g64.exe
+/benchmark/g86.exe
