@@ -131,12 +131,12 @@ static void clobber_memory ( ) {
 
 namespace detail {
 
-struct large {
+struct uint32uint32_t {
     std::uint32_t low, high;
 };
 
 #if MSVC
-unsigned long leading_zeros_intrin_32 ( large x ) {
+unsigned long leading_zeros_intrin_32 ( uint32uint32_t x ) {
     unsigned long c = 0u;
     if ( not ( x.high ) ) {
         _BitScanReverse ( &c, x.low );
@@ -146,7 +146,7 @@ unsigned long leading_zeros_intrin_32 ( large x ) {
     return 31u - c;
 }
 #else
-int leading_zeros_intrin_32 ( large x ) {
+int leading_zeros_intrin_32 ( uint32uint32_t x ) {
     if ( not ( x.high ) ) {
         return __builtin_clz ( x.low ) + 32;
     }
@@ -167,7 +167,7 @@ std::uint32_t leading_zeros_intrin ( std::uint32_t x ) NOEXCEPT {
 
 std::uint32_t leading_zeros_intrin ( std::uint64_t x ) NOEXCEPT {
     if constexpr ( MEMORY_MODEL_32 ) {
-        return detail::leading_zeros_intrin_32 ( *reinterpret_cast<detail::large*> ( &x ) );
+        return detail::leading_zeros_intrin_32 ( *reinterpret_cast<detail::uint32uint32_t*> ( &x ) );
     }
     else {
         #if MSVC

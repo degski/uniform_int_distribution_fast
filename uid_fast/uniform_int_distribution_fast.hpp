@@ -93,12 +93,12 @@ struct model {
     enum : std::size_t { value = ( sizeof ( void* ) * 8 ) };
 };
 
-struct large {
-    unsigned long low, high;
+struct uint32uint32_t {
+    std::uint32_t low, high;
 };
 
 #if MSVC
-__forceinline unsigned long leading_zeros_intrin_32 ( large x ) {
+__forceinline unsigned long leading_zeros_intrin_32 ( uint32uint32_t x ) {
     unsigned long c = 0u;
     if ( not ( x.high ) ) {
         _BitScanReverse ( &c, x.low );
@@ -109,7 +109,7 @@ __forceinline unsigned long leading_zeros_intrin_32 ( large x ) {
 }
 unsigned long leading_zeros ( std::uint64_t x ) noexcept {
     if constexpr ( model::value == 32 ) {
-        return leading_zeros_intrin_32 ( *reinterpret_cast<large*> ( &x ) );
+        return leading_zeros_intrin_32 ( *reinterpret_cast<uint32uint32_t*> ( &x ) );
     }
     else {
         unsigned long c;
@@ -118,7 +118,7 @@ unsigned long leading_zeros ( std::uint64_t x ) noexcept {
     }
 }
 #else
-__attribute__ (( always_inline )) int leading_zeros_intrin_32 ( large x ) {
+__attribute__ (( always_inline )) int leading_zeros_intrin_32 ( uint32uint32_t x ) {
     if ( not ( x.high ) ) {
         return __builtin_clz ( x.low ) + 32;
     }
@@ -126,7 +126,7 @@ __attribute__ (( always_inline )) int leading_zeros_intrin_32 ( large x ) {
 }
 int leading_zeros ( std::uint64_t x ) noexcept {
     if constexpr ( model::value == 32 ) {
-        return leading_zeros_intrin_32 ( *reinterpret_cast<large*> ( &x ) );
+        return leading_zeros_intrin_32 ( *reinterpret_cast<uint32uint32_t*> ( &x ) );
     }
     else {
         return __builtin_clzll ( x );
