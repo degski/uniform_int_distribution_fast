@@ -64,9 +64,7 @@
         #pragma intrinsic ( _BitScanReverse )
         #pragma intrinsic ( _BitScanReverse64 )
     #else
-        unsigned __int64 _umul128 ( unsigned __int64 Multiplier, unsigned __int64 Multiplicand, unsigned __int64 *HighProduct );
         #pragma intrinsic ( _BitScanReverse )
-        unsigned char _BitScanReverse64 ( unsigned long *, unsigned long long );
     #endif
     #define GNU 0
     #define MSVC 1
@@ -82,7 +80,6 @@
         #define CLANG 0
         #define GCC 1
     #endif
-    unsigned __int64 _umul128 ( unsigned __int64 Multiplier, unsigned __int64 Multiplicand, unsigned __int64 *HighProduct );
     unsigned char _BitScanReverse ( unsigned long *, unsigned long );
     unsigned char _BitScanReverse64 ( unsigned long *, unsigned long long );
 #endif
