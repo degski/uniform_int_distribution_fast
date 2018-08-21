@@ -63,6 +63,7 @@
 #endif
 
 #include <functional>
+#include <iostream>
 #include <limits>
 #include <random>
 #include <type_traits>
@@ -74,20 +75,29 @@
         #pragma intrinsic ( _BitScanReverse )
         #pragma intrinsic ( _BitScanReverse64 )
     #else
-        unsigned __int64 _umul128 ( unsigned __int64 Multiplier, unsigned __int64 Multiplicand, unsigned __int64 *HighProduct );
+        //unsigned __int64 _umul128 ( unsigned __int64 Multiplier, unsigned __int64 Multiplicand, unsigned __int64 *HighProduct );
         #pragma intrinsic ( _BitScanReverse )
-        unsigned char _BitScanReverse64 ( unsigned long *, unsigned long long );
+        //unsigned char _BitScanReverse64 ( unsigned long *, unsigned long long );
     #endif
     #define GNU 0
     #define MSVC 1
+    #define GCC 0
+    #define CLANG 0
     #pragma warning ( push )
     #pragma warning ( disable : 4244 )
 #else
     #define GNU 1
     #define MSVC 0
-    unsigned __int64 _umul128 ( unsigned __int64 Multiplier, unsigned __int64 Multiplicand, unsigned __int64 *HighProduct );
-    unsigned char _BitScanReverse ( unsigned long *, unsigned long );
-    unsigned char _BitScanReverse64 ( unsigned long *, unsigned long long );
+    #if defined ( __clang__ )
+        #define CLANG 1
+        #define GCC 0
+    #else
+        #define CLANG 0
+        #define GCC 1
+    #endif
+    //unsigned __int64 _umul128 ( unsigned __int64 Multiplier, unsigned __int64 Multiplicand, unsigned __int64 *HighProduct );
+    //unsigned char _BitScanReverse ( unsigned long *, unsigned long );
+    //unsigned char _BitScanReverse64 ( unsigned long *, unsigned long long );
 #endif
 
 #if MEMORY_MODEL_32
@@ -106,61 +116,59 @@ struct uint32uint32_t {
     std::uint32_t low, high;
 };
 
-#if MSVC
-unsigned long leading_zeros_intrin_32 ( uint32uint32_t x ) {
-    unsigned long c = 0u;
-    if ( ! ( x.high ) ) {
-        _BitScanReverse ( &c, x.low );
-        return 63u - c;
+template<typename Type>
+std::uint32_t leading_zeros_intrin ( Type x ) NOEXCEPT {
+    if constexpr ( std::is_same<Type, std::uint64_t>::value ) {
+        if constexpr ( MEMORY_MODEL_32 ) {
+            if constexpr ( MSVC ) {
+                unsigned long c = 0u;
+                if ( !( ( *reinterpret_cast<uint32uint32_t*> ( &x ) ).high ) ) {
+                    _BitScanReverse ( &c, ( *reinterpret_cast<uint32uint32_t*> ( &x ) ).low );
+                    return 63u - c;
+                }
+                _BitScanReverse ( &c, ( *reinterpret_cast<uint32uint32_t*> ( &x ) ).high );
+                return 31u - c;
+            }
+            else {
+                if ( !( ( *reinterpret_cast<uint32uint32_t*> ( &x ) ).high ) ) {
+                    return __builtin_clz ( ( *reinterpret_cast<uint32uint32_t*> ( &x ) ).low ) + 32;
+                }
+                return __builtin_clz ( ( *reinterpret_cast<uint32uint32_t*> ( &x ) ).high );
+            }
+        }
+        else {
+            if constexpr ( MSVC ) {
+                unsigned long c;
+                _BitScanReverse64 ( &c, x );
+                return static_cast<std::uint32_t> ( std::numeric_limits<Type>::digits - 1 ) - c;
+            }
+            else {
+                return __builtin_clzll ( x );
+            }
+        }
     }
-    _BitScanReverse ( &c, x.high );
-    return 31u - c;
-}
-#else
-int leading_zeros_intrin_32 ( uint32uint32_t x ) {
-    if ( ! ( x.high ) ) {
-        return __builtin_clz ( x.low ) + 32;
-    }
-    return __builtin_clz ( x.high );
-}
-#endif
-
-
-std::uint32_t leading_zeros_intrin ( std::uint32_t x ) NOEXCEPT {
-#if MSVC
-    unsigned long c;
-    _BitScanReverse ( &c, x );
-    return 63u - c;
-#else
-    return __builtin_clz ( x );
-#endif
-}
-
-std::uint32_t leading_zeros_intrin ( std::uint64_t x ) NOEXCEPT {
-    if constexpr ( MEMORY_MODEL_32 ) {
-        return leading_zeros_intrin_32 ( *reinterpret_cast<uint32uint32_t*> ( &x ) );
-    }
-    else {
-    #if MSVC
-        unsigned long c;
-        _BitScanReverse64 ( &c, x );
-        return 63u - c;
-    #else
-        return __builtin_clzll ( x );
-    #endif
+    else { // 16 or 32 bits.
+        if constexpr ( MSVC ) {
+            unsigned long c;
+            _BitScanReverse ( &c, static_cast<std::uint32_t> ( x ) );
+            return static_cast<std::uint32_t> ( std::numeric_limits<Type>::digits - 1 ) - c;
+        }
+        else {
+            return __builtin_clz ( static_cast<std::uint32_t> ( x ) );
+        }
     }
 }
 
-template<typename Rng, typename Type>
-Type br_bitmask ( Rng & rng, Type range ) NOEXCEPT {
+template<typename Rng, typename RangeType, typename ResultType>
+ResultType br_bitmask ( Rng & rng, RangeType range ) NOEXCEPT {
     --range;
-    Type mask = std::numeric_limits<Type>::max ( );
-    mask >>= leading_zeros_intrin ( range | Type { 1 } );
-    Type x;
+    RangeType mask = std::numeric_limits<RangeType>::max ( );
+    mask >>= leading_zeros_intrin<RangeType> ( range | RangeType { 1 } );
+    RangeType x;
     do {
         x = rng ( ) & mask;
     } while ( x > range );
-    return x;
+    return ResultType ( x );
 }
 
 
@@ -196,8 +204,119 @@ template<> struct double_width_integer<std::uint16_t> { using type = std::uint32
 template<> struct double_width_integer<std::uint32_t> { using type = std::uint64_t; };
 #if MEMORY_MODEL_32
 template<> struct double_width_integer<std::uint64_t> { using type = absl::uint128; };
+#else
+#if GNU
+template<> struct double_width_integer<std::uint64_t> { using type = __uint128_t; };
+#endif
 #endif
 
+#if MEMORY_MODEL_64
+    #if GNU
+    template<typename Rng, typename Type, typename ResultType>
+    ResultType br_lemire_oneill ( Rng & rng, Type range ) NOEXCEPT {
+        using double_width_unsigned_result_type = typename double_width_integer<unsigned_result_type<ResultType>>::type;
+        unsigned_result_type<ResultType> x = rng ( );
+        if ( range >= ( unsigned_result_type<ResultType> { 1 } << ( sizeof ( unsigned_result_type<ResultType> ) * 8 - 1 ) ) ) {
+            do {
+                x = rng ( );
+            } while ( x >= range );
+            return ResultType ( x );
+        }
+        double_width_unsigned_result_type m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( range );
+        unsigned_result_type<ResultType> l = unsigned_result_type<ResultType> ( m );
+        if ( l < range ) {
+            unsigned_result_type<ResultType> t = ( 0 - range );
+            t -= range;
+            if ( t >= range ) {
+                t %= range;
+            }
+            while ( l < t ) {
+                x = rng ( );
+                m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( range );
+                l = unsigned_result_type<ResultType> ( m );
+            }
+        }
+        return ResultType ( m >> std::numeric_limits<unsigned_result_type<ResultType>>::digits );
+    }
+    #else
+    template<typename Rng, typename Type, typename ResultType>
+    ResultType br_lemire_oneill ( Rng & rng, Type range ) NOEXCEPT {
+        if constexpr ( std::is_same<Type, std::uint64_t>::value ) {
+            unsigned_result_type<ResultType> x = rng ( );
+            if ( range >= ( unsigned_result_type<ResultType> { 1 } << ( sizeof ( unsigned_result_type<ResultType> ) * 8 - 1 ) ) ) {
+                do {
+                    x = rng ( );
+                } while ( x >= range );
+                return ResultType ( x );
+            }
+            unsigned_result_type<ResultType> h, l = _umul128 ( x, range, &h );
+            if ( l < range ) {
+                unsigned_result_type<ResultType> t = ( 0 - range );
+                t -= range;
+                if ( t >= range ) {
+                    t %= range;
+                }
+                while ( l < t ) {
+                    l = _umul128 ( rng ( ), range, &h );
+                }
+            }
+            return ResultType ( h );
+        }
+        else { // range is of type std::uint32_t.
+            using double_width_unsigned_result_type = typename double_width_integer<unsigned_result_type<ResultType>>::type;
+            unsigned_result_type<ResultType> x = rng ( );
+            if ( range >= ( unsigned_result_type<ResultType> { 1 } << ( sizeof ( unsigned_result_type<ResultType> ) * 8 - 1 ) ) ) {
+                do {
+                    x = rng ( );
+                } while ( x >= range );
+                return ResultType ( x );
+            }
+            double_width_unsigned_result_type m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( range );
+            unsigned_result_type<ResultType> l = unsigned_result_type<ResultType> ( m );
+            if ( l < range ) {
+                unsigned_result_type<ResultType> t = ( 0 - range );
+                t -= range;
+                if ( t >= range ) {
+                    t %= range;
+                }
+                while ( l < t ) {
+                    x = rng ( );
+                    m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( range );
+                    l = unsigned_result_type<ResultType> ( m );
+                }
+            }
+            return ResultType ( m >> std::numeric_limits<unsigned_result_type<ResultType>>::digits );
+        }
+    }
+    #endif
+#else
+template<typename Rng, typename Type, typename ResultType = Type>
+ResultType br_lemire_oneill ( Rng & rng, Type range ) NOEXCEPT {
+    using double_width_unsigned_result_type = typename double_width_integer<unsigned_result_type<ResultType>>::type;
+    unsigned_result_type<ResultType> x = rng ( );
+    if ( range >= ( unsigned_result_type<ResultType> { 1 } << ( sizeof ( unsigned_result_type<ResultType> ) * 8 - 1 ) ) ) {
+        do {
+            x = rng ( );
+        } while ( x >= range );
+        return ResultType ( x );
+    }
+    double_width_unsigned_result_type m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( range );
+    unsigned_result_type<ResultType> l = unsigned_result_type<ResultType> ( m );
+    if ( l < range ) {
+        unsigned_result_type<ResultType> t = ( 0 - range );
+        t -= range;
+        if ( t >= range ) {
+            t %= range;
+        }
+        while ( l < t ) {
+            x = rng ( );
+            m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( range );
+            l = unsigned_result_type<ResultType> ( m );
+        }
+    }
+    return ResultType ( m >> std::numeric_limits<unsigned_result_type<ResultType>>::digits );
+}
+#endif
 
 template<typename IntType>
 using is_distribution_result_type =
@@ -220,17 +339,17 @@ struct param_type {
     explicit param_type ( result_type min_, result_type max_ ) NOEXCEPT :
         min ( min_ ),
         range ( max_ - min_ + 1 ) { // wraps to 0 for unsigned max.
-        if constexpr ( MEMORY_MODEL_32 and std::numeric_limits<unsigned_result_type>::digits == 64 ) {
-            --range;
-        }
+        //if constexpr ( MEMORY_MODEL_32 and std::numeric_limits<unsigned_result_type>::digits == 64 ) {
+        //    --range;
+       // }
     }
 
     [[ nodiscard ]] constexpr bool operator == ( const param_type & rhs ) const NOEXCEPT {
-        return min == rhs.min and range == rhs.range;
+        return ( min == rhs.min ) && ( range == rhs.range );
     }
 
     [[ nodiscard ]] constexpr bool operator != ( const param_type & rhs ) const NOEXCEPT {
-        return not ( *this == rhs );
+        return ! ( *this == rhs );
     }
 
     [[ nodiscard ]] constexpr result_type a ( ) const NOEXCEPT {
@@ -238,12 +357,12 @@ struct param_type {
     }
 
     [[ nodiscard ]] constexpr result_type b ( ) const NOEXCEPT {
-        if constexpr ( MEMORY_MODEL_32 and std::numeric_limits<unsigned_result_type>::digits == 64 ) {
-            return ( range + 1 ) ? range + min : std::numeric_limits<result_type>::max ( );
-        }
-        else {
+        //if constexpr ( MEMORY_MODEL_32 and std::numeric_limits<unsigned_result_type>::digits == 64 ) {
+        //    return ( range + 1 ) ? range + min : std::numeric_limits<result_type>::max ( );
+        //}
+       // else {
             return range ? range + min - 1 : std::numeric_limits<result_type>::max ( );
-        }
+        //}
     }
 
     private:
@@ -258,7 +377,7 @@ struct param_type {
 template<typename IntType>
 class uniform_int_distribution_fast : public detail::param_type<IntType, uniform_int_distribution_fast<IntType>> {
 
-    static_assert ( detail::is_distribution_result_type<IntType>::value, "char (8-bit) not supported." );
+    static_assert ( detail::is_distribution_result_type<IntType>::value, "only 16-, 32- and 64-bit result_types supported." );
 
     public:
 
@@ -271,11 +390,7 @@ class uniform_int_distribution_fast : public detail::param_type<IntType, uniform
 
     using pt = param_type;
     using unsigned_result_type = typename std::make_unsigned<result_type>::type;
-    //#if MSVC
-    using double_width_unsigned_result_type = unsigned_result_type; // dummy.
-    //#else
-    //using double_width_unsigned_result_type = typename double_width_integer<unsigned_result_type>::type;
-    //#endif
+
     [[ nodiscard ]] constexpr unsigned_result_type range_max ( ) const NOEXCEPT {
         return unsigned_result_type { 1 } << ( sizeof ( unsigned_result_type ) * 8 - 1 );
     }
@@ -305,7 +420,15 @@ class uniform_int_distribution_fast : public detail::param_type<IntType, uniform
     template<typename Gen>
     [[ nodiscard ]] result_type generate ( Gen & rng ) const NOEXCEPT {
         static generator_reference<Gen> rng_ref ( rng );
-        return 1;
+        if ( 0 == pt::range ) { // exploits the ub (ub is cool), to deal with interval [ std::numeric_limits<result_type>::max ( ), std::numeric_limits<result_type>::max ( ) ].
+            return static_cast<result_type> ( rng_ref ( ) ) + pt::min;
+        }
+        if constexpr ( CLANG || ( MSVC && MEMORY_MODEL_32 ) ) {
+            return detail::br_lemire_oneill<generator_reference<Gen>, unsigned_result_type, result_type> ( rng_ref, pt::range ) + pt::min;
+        }
+        else { // bitmask
+            return detail::br_bitmask<generator_reference<Gen>, unsigned_result_type, result_type> ( rng_ref, pt::range ) + pt::min;
+        }
     }
 
     [[ nodiscard ]] param_type param ( ) const NOEXCEPT {
@@ -340,6 +463,8 @@ class uniform_int_distribution_fast : public detail::param_type<IntType, uniform
 
 #undef GNU
 #undef MSVC
+#undef CLANG
+#undef GCC
 #undef MEMORY_MODEL_64
 #undef MEMORY_MODEL_32
 #undef NOEXCEPT
