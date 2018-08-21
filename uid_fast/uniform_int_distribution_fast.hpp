@@ -210,10 +210,9 @@ constexpr unsigned_result_type<Type> make_mask ( ) noexcept {
     return unsigned_result_type<Type> { 1 } << ( std::numeric_limits<unsigned_result_type<Type>>::digits - 1 );
 }
 
-
-#if MSVC && MEMORY_MODEL_64
 template<typename Rng, typename RangeType, typename ResultType>
 ResultType br_lemire_oneill ( Rng & rng, RangeType range ) NOEXCEPT {
+    #if MSVC && MEMORY_MODEL_64
     if constexpr ( std::is_same<RangeType, std::uint64_t>::value ) {
         unsigned_result_type<ResultType> x = rng ( );
         if ( range >= make_mask<ResultType> ( ) ) {
@@ -236,6 +235,7 @@ ResultType br_lemire_oneill ( Rng & rng, RangeType range ) NOEXCEPT {
         return ResultType ( h );
     }
     else { // range is of type std::uint32_t.
+    #endif
         using double_width_unsigned_result_type = typename double_width_integer<unsigned_result_type<ResultType>>::type;
         unsigned_result_type<ResultType> x = rng ( );
         if ( range >= make_mask<ResultType> ( ) ) {
@@ -259,36 +259,11 @@ ResultType br_lemire_oneill ( Rng & rng, RangeType range ) NOEXCEPT {
             }
         }
         return ResultType ( m >> std::numeric_limits<unsigned_result_type<ResultType>>::digits );
+    #if MSVC && MEMORY_MODEL_64
     }
+    #endif
 }
-#else
-template<typename Rng, typename RangeType, typename ResultType>
-ResultType br_lemire_oneill ( Rng & rng, RangeType range ) NOEXCEPT {
-    using double_width_unsigned_result_type = typename double_width_integer<unsigned_result_type<ResultType>>::type;
-    unsigned_result_type<ResultType> x = rng ( );
-    if ( range >= make_mask<ResultType> ( ) ) {
-        do {
-            x = rng ( );
-        } while ( x >= range );
-        return ResultType ( x );
-    }
-    double_width_unsigned_result_type m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( range );
-    unsigned_result_type<ResultType> l = unsigned_result_type<ResultType> ( m );
-    if ( l < range ) {
-        unsigned_result_type<ResultType> t = ( 0 - range );
-        t -= range;
-        if ( t >= range ) {
-            t %= range;
-        }
-        while ( l < t ) {
-            x = rng ( );
-            m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( range );
-            l = unsigned_result_type<ResultType> ( m );
-        }
-    }
-    return ResultType ( m >> std::numeric_limits<unsigned_result_type<ResultType>>::digits );
-}
-#endif
+
 
 template<typename IntType>
 using is_distribution_result_type =

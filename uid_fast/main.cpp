@@ -49,7 +49,7 @@ int main ( ) {
 
     splitmix64 rng ( [ ] ( ) { std::random_device rdev; return ( static_cast<std::uint64_t> ( rdev ( ) ) << 32 ) | static_cast<std::uint64_t> ( rdev ( ) ); } ( ) );
     // ext::uniform_int_distribution_fast<std::uint64_t> dis ( 0, ( std::uint64_t { 1 } << 63 ) - 100 );
-    ext::uniform_int_distribution_fast<std::uint16_t> dis ( 0, 9 );
+    ext::uniform_int_distribution_fast<std::uint64_t> dis ( 0, 9 );
 
     std::array<std::uint64_t, 10> freq { 0 };
 
