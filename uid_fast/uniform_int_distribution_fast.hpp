@@ -36,13 +36,8 @@
 #endif
 #endif
 
-#if ! defined ( _DEBUG )
+#if _HAS_EXCEPTIONS == 0
     #define NOEXCEPT
-    #if defined ( _HAS_EXCEPTIONS )
-        #define ORG_HAS_EXCEPTIONS _HAS_EXCEPTIONS
-        #undef _HAS_EXCEPTIONS
-    #endif
-    #define _HAS_EXCEPTIONS 0
 #else
     #define NOEXCEPT noexcept
 #endif
@@ -81,8 +76,6 @@
     #define MSVC 1
     #define GCC 0
     #define CLANG 0
-    #pragma warning ( push )
-    #pragma warning ( disable : 4244 )
 #else
     #define GNU 1
     #define MSVC 0
@@ -203,7 +196,7 @@ template<> struct double_width_integer<std::uint64_t> { using type = __uint128_t
 
 
 template<typename Type>
-constexpr Type make_mask ( ) noexcept {
+constexpr Type make_mask ( ) NOEXCEPT {
     return Type { 1 } << ( std::numeric_limits<Type>::digits - 1 );
 }
 
@@ -385,24 +378,11 @@ class uniform_int_distribution_fast : public detail::param_type<IntType, uniform
 };
 }
 
-
-// restore warnings
-
-#if MSVC
-    #pragma warning ( pop )
-#endif
-
 // macro cleanup
 
 #if defined ( NOMINMAX_LOCALLY_DEFINED )
     #undef NOMINMAX
     #undef NOMINMAX_LOCALLY_DEFINED
-#endif
-
-#undef _HAS_EXCEPTIONS
-#if defined ( ORG_HAS_EXCEPTIONS )
-    #define _HAS_EXCEPTIONS ORG_HAS_EXCEPTIONS
-    #undef ORG_HAS_EXCEPTIONS
 #endif
 
 #undef GNU
