@@ -112,7 +112,7 @@ struct uint32uint32_t {
 };
 
 template<typename Type>
-std::uint32_t leading_zeros_intrin ( Type x ) NOEXCEPT {
+std::uint32_t leading_zeros ( Type x ) NOEXCEPT {
     if constexpr ( std::is_same<Type, std::uint64_t>::value ) {
         if constexpr ( MEMORY_MODEL_32 ) {
             if constexpr ( MSVC ) {
@@ -158,7 +158,7 @@ template<typename Rng, typename RangeType, typename ResultType>
 ResultType br_bitmask ( Rng & rng, RangeType range ) NOEXCEPT {
     --range;
     RangeType mask = std::numeric_limits<RangeType>::max ( );
-    mask >>= leading_zeros_intrin<RangeType> ( range | RangeType { 1 } );
+    mask >>= leading_zeros ( range | RangeType { 1 } );
     RangeType x;
     do {
         x = rng ( ) & mask;
