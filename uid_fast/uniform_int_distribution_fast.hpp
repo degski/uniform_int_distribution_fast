@@ -36,12 +36,6 @@
 #endif
 #endif
 
-#if _HAS_EXCEPTIONS == 0
-    #define NOEXCEPT
-#else
-    #define NOEXCEPT noexcept
-#endif
-
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -92,6 +86,11 @@
     #include <absl/numeric/int128.h>
 #endif
 
+#if _HAS_EXCEPTIONS == 0
+#define NOEXCEPT
+#else
+#define NOEXCEPT noexcept
+#endif
 
 namespace ext {
 
