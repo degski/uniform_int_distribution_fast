@@ -263,3 +263,5 @@ __pycache__/
 /benchmark/g64.exe
 /benchmark/g86.exe
 /uid_fast/uniform_int_distribution_fast - Copy.hpp
+/uid_fast/g64.exe
+/uid_fast/g86.exe

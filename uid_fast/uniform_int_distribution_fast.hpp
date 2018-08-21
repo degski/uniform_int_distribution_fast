@@ -64,7 +64,9 @@
         #pragma intrinsic ( _BitScanReverse )
         #pragma intrinsic ( _BitScanReverse64 )
     #else
+        unsigned __int64 _umul128 ( unsigned __int64 Multiplier, unsigned __int64 Multiplicand, unsigned __int64 *HighProduct );
         #pragma intrinsic ( _BitScanReverse )
+        unsigned char _BitScanReverse64 ( unsigned long *, unsigned long long );
     #endif
     #define GNU 0
     #define MSVC 1
@@ -80,6 +82,9 @@
         #define CLANG 0
         #define GCC 1
     #endif
+    unsigned __int64 _umul128 ( unsigned __int64 Multiplier, unsigned __int64 Multiplicand, unsigned __int64 *HighProduct );
+    unsigned char _BitScanReverse ( unsigned long *, unsigned long );
+    unsigned char _BitScanReverse64 ( unsigned long *, unsigned long long );
 #endif
 
 #if MEMORY_MODEL_32
@@ -147,7 +152,7 @@ std::uint32_t leading_zeros ( Type x ) NOEXCEPT {
 }
 
 template<typename Rng, typename RangeType, typename ResultType>
-ResultType br_bitmask ( Rng & rng, RangeType range ) NOEXCEPT {
+ResultType bounded_range_bitmask ( Rng & rng, RangeType range ) NOEXCEPT {
     --range;
     RangeType mask = std::numeric_limits<RangeType>::max ( );
     mask >>= leading_zeros<RangeType> ( range | RangeType { 1 } );
@@ -187,10 +192,9 @@ template<> struct double_width_integer<std::uint16_t> { using type = std::uint32
 template<> struct double_width_integer<std::uint32_t> { using type = std::uint64_t; };
 #if MEMORY_MODEL_32
 template<> struct double_width_integer<std::uint64_t> { using type = absl::uint128; };
-#else
-#if GNU
-template<> struct double_width_integer<std::uint64_t> { using type = __uint128_t; };
 #endif
+#if GNU && MEMORY_MODEL_64
+template<> struct double_width_integer<std::uint64_t> { using type = __uint128_t; };
 #endif
 
 
@@ -200,7 +204,7 @@ constexpr Type make_mask ( ) NOEXCEPT {
 }
 
 template<typename Rng, typename RangeType, typename ResultType>
-ResultType br_lemire_oneill ( Rng & rng, RangeType range ) NOEXCEPT {
+ResultType bounded_range_lemire_oneill ( Rng & rng, RangeType range ) NOEXCEPT {
     #if MSVC && MEMORY_MODEL_64
     if constexpr ( std::is_same<RangeType, std::uint64_t>::value ) {
         RangeType x = rng ( );
@@ -360,10 +364,10 @@ class uniform_int_distribution_fast : public detail::param_type<IntType, uniform
             return static_cast<result_type> ( rng_ref ( ) );
         }
         if constexpr ( CLANG || ( MSVC && MEMORY_MODEL_32 ) ) {
-            return detail::br_lemire_oneill<generator_reference<Gen>, range_type, result_type> ( rng_ref, pt::range ) + pt::min;
+            return detail::bounded_range_lemire_oneill<generator_reference<Gen>, range_type, result_type> ( rng_ref, pt::range ) + pt::min;
         }
         else {
-            return detail::br_bitmask<generator_reference<Gen>, range_type, result_type> ( rng_ref, pt::range ) + pt::min;
+            return detail::bounded_range_bitmask<generator_reference<Gen>, range_type, result_type> ( rng_ref, pt::range ) + pt::min;
         }
     }
 
