@@ -189,10 +189,6 @@ struct bits_engine<Gen, UnsignedResultType, false> : public generator_reference<
     explicit bits_engine ( Gen & gen ) : generator_reference<Gen> ( gen ) { }
 };
 
-
-template<typename Type>
-using unsigned_result_type = typename std::make_unsigned<Type>::type;
-
 template<typename IT> struct double_width_integer { };
 template<> struct double_width_integer<std::uint8_t > { using type = std::uint16_t; };
 template<> struct double_width_integer<std::uint16_t> { using type = std::uint32_t; };
@@ -205,25 +201,26 @@ template<> struct double_width_integer<std::uint64_t> { using type = __uint128_t
 #endif
 #endif
 
+
 template<typename Type>
-constexpr unsigned_result_type<Type> make_mask ( ) noexcept {
-    return unsigned_result_type<Type> { 1 } << ( std::numeric_limits<unsigned_result_type<Type>>::digits - 1 );
+constexpr Type make_mask ( ) noexcept {
+    return Type { 1 } << ( std::numeric_limits<Type>::digits - 1 );
 }
 
 template<typename Rng, typename RangeType, typename ResultType>
 ResultType br_lemire_oneill ( Rng & rng, RangeType range ) NOEXCEPT {
     #if MSVC && MEMORY_MODEL_64
     if constexpr ( std::is_same<RangeType, std::uint64_t>::value ) {
-        unsigned_result_type<ResultType> x = rng ( );
-        if ( range >= make_mask<ResultType> ( ) ) {
+        RangeType x = rng ( );
+        if ( range >= make_mask<RangeType> ( ) ) {
             do {
                 x = rng ( );
             } while ( x >= range );
             return ResultType ( x );
         }
-        unsigned_result_type<ResultType> h, l = _umul128 ( x, range, &h );
+        RangeType h, l = _umul128 ( x, range, &h );
         if ( l < range ) {
-            unsigned_result_type<ResultType> t = ( 0 - range );
+            RangeType = ( 0 - range );
             t -= range;
             if ( t >= range ) {
                 t %= range;
@@ -234,31 +231,31 @@ ResultType br_lemire_oneill ( Rng & rng, RangeType range ) NOEXCEPT {
         }
         return ResultType ( h );
     }
-    else { // range is of type std::uint32_t.
+    else {
     #endif
-        using double_width_unsigned_result_type = typename double_width_integer<unsigned_result_type<ResultType>>::type;
-        unsigned_result_type<ResultType> x = rng ( );
-        if ( range >= make_mask<ResultType> ( ) ) {
+        using double_width_range_type = typename double_width_integer<RangeType>::type;
+        RangeType x = rng ( );
+        if ( range >= make_mask<RangeType> ( ) ) {
             do {
                 x = rng ( );
             } while ( x >= range );
             return ResultType ( x );
         }
-        double_width_unsigned_result_type m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( range );
-        unsigned_result_type<ResultType> l = unsigned_result_type<ResultType> ( m );
+        double_width_range_type m = double_width_range_type ( x ) * double_width_range_type ( range );
+        RangeType l = RangeType ( m );
         if ( l < range ) {
-            unsigned_result_type<ResultType> t = ( 0 - range );
+            RangeType t = ( 0 - range );
             t -= range;
             if ( t >= range ) {
                 t %= range;
             }
             while ( l < t ) {
                 x = rng ( );
-                m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( range );
-                l = unsigned_result_type<ResultType> ( m );
+                m = double_width_range_type ( x ) * double_width_range_type ( range );
+                l = RangeType ( m );
             }
         }
-        return ResultType ( m >> std::numeric_limits<unsigned_result_type<ResultType>>::digits );
+        return ResultType ( m >> std::numeric_limits<RangeType>::digits );
     #if MSVC && MEMORY_MODEL_64
     }
     #endif
@@ -279,14 +276,14 @@ struct param_type {
     using result_type = IntType;
     using distribution_type = Distribution;
 
-    using unsigned_result_type = typename std::make_unsigned<result_type>::type;
+    using range_type = typename std::make_unsigned<result_type>::type;
 
     friend class ::ext::uniform_int_distribution_fast<result_type>;
 
     explicit param_type ( result_type min_, result_type max_ ) NOEXCEPT :
         min ( min_ ),
         range ( max_ - min_ + 1 ) { // wraps to 0 for unsigned max.
-        //if constexpr ( MEMORY_MODEL_32 and std::numeric_limits<unsigned_result_type>::digits == 64 ) {
+        //if constexpr ( MEMORY_MODEL_32 and std::numeric_limits<range_type>::digits == 64 ) {
         //    --range;
        // }
     }
@@ -304,7 +301,7 @@ struct param_type {
     }
 
     [[ nodiscard ]] constexpr result_type b ( ) const NOEXCEPT {
-        //if constexpr ( MEMORY_MODEL_32 and std::numeric_limits<unsigned_result_type>::digits == 64 ) {
+        //if constexpr ( MEMORY_MODEL_32 and std::numeric_limits<range_type>::digits == 64 ) {
         //    return ( range + 1 ) ? range + min : std::numeric_limits<result_type>::max ( );
         //}
        // else {
@@ -315,7 +312,7 @@ struct param_type {
     private:
 
     result_type min;
-    unsigned_result_type range;
+    range_type range;
 };
 }
 
@@ -336,14 +333,14 @@ class uniform_int_distribution_fast : public detail::param_type<IntType, uniform
     friend param_type;
 
     using pt = param_type;
-    using unsigned_result_type = typename std::make_unsigned<result_type>::type;
+    using range_type = typename std::make_unsigned<result_type>::type;
 
-    [[ nodiscard ]] constexpr unsigned_result_type range_max ( ) const NOEXCEPT {
-        return unsigned_result_type { 1 } << ( sizeof ( unsigned_result_type ) * 8 - 1 );
+    [[ nodiscard ]] constexpr range_type range_max ( ) const NOEXCEPT {
+        return range_type { 1 } << ( sizeof ( range_type ) * 8 - 1 );
     }
 
     template<typename Gen>
-    using generator_reference = detail::bits_engine<Gen, unsigned_result_type, ( Gen::max ( ) < std::numeric_limits<unsigned_result_type>::max ( ) )>;
+    using generator_reference = detail::bits_engine<Gen, range_type, ( Gen::max ( ) < std::numeric_limits<range_type>::max ( ) )>;
 
     public:
 
@@ -367,14 +364,14 @@ class uniform_int_distribution_fast : public detail::param_type<IntType, uniform
     template<typename Gen>
     [[ nodiscard ]] result_type generate ( Gen & rng ) const NOEXCEPT {
         static generator_reference<Gen> rng_ref ( rng );
-        if ( 0 == pt::range ) { // exploits the ub (ub is cool), to deal with interval [ std::numeric_limits<result_type>::max ( ), std::numeric_limits<result_type>::max ( ) ].
-            return static_cast<result_type> ( rng_ref ( ) ) + pt::min;
+        if ( 0 == pt::range ) { // deal with interval [ std::numeric_limits<result_type>::min ( ), std::numeric_limits<result_type>::max ( ) ].
+            return static_cast<result_type> ( rng_ref ( ) );
         }
         if constexpr ( CLANG || ( MSVC && MEMORY_MODEL_32 ) ) {
-            return detail::br_lemire_oneill<generator_reference<Gen>, unsigned_result_type, result_type> ( rng_ref, pt::range ) + pt::min;
+            return detail::br_lemire_oneill<generator_reference<Gen>, range_type, result_type> ( rng_ref, pt::range ) + pt::min;
         }
         else {
-            return detail::br_bitmask<generator_reference<Gen>, unsigned_result_type, result_type> ( rng_ref, pt::range ) + pt::min;
+            return detail::br_bitmask<generator_reference<Gen>, range_type, result_type> ( rng_ref, pt::range ) + pt::min;
         }
     }
 
