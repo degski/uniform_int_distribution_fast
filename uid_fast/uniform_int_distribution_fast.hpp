@@ -158,7 +158,7 @@ template<typename Rng, typename RangeType, typename ResultType>
 ResultType br_bitmask ( Rng & rng, RangeType range ) NOEXCEPT {
     --range;
     RangeType mask = std::numeric_limits<RangeType>::max ( );
-    mask >>= leading_zeros ( range | RangeType { 1 } );
+    mask >>= leading_zeros<RangeType> ( range | RangeType { 1 } );
     RangeType x;
     do {
         x = rng ( ) & mask;
@@ -205,13 +205,18 @@ template<> struct double_width_integer<std::uint64_t> { using type = __uint128_t
 #endif
 #endif
 
+template<typename Type>
+constexpr unsigned_result_type<Type> make_mask ( ) noexcept {
+    return unsigned_result_type<Type> { 1 } << ( std::numeric_limits<unsigned_result_type<Type>>::digits - 1 );
+}
+
 #if MEMORY_MODEL_64
     #if GNU
-    template<typename Rng, typename Type, typename ResultType>
-    ResultType br_lemire_oneill ( Rng & rng, Type range ) NOEXCEPT {
+    template<typename Rng, typename RangeType, typename ResultType>
+    ResultType br_lemire_oneill ( Rng & rng, RangeType range ) NOEXCEPT {
         using double_width_unsigned_result_type = typename double_width_integer<unsigned_result_type<ResultType>>::type;
         unsigned_result_type<ResultType> x = rng ( );
-        if ( range >= ( unsigned_result_type<ResultType> { 1 } << ( sizeof ( unsigned_result_type<ResultType> ) * 8 - 1 ) ) ) {
+        if ( range >= make_mask<ResultType> ( ) ) {
             do {
                 x = rng ( );
             } while ( x >= range );
@@ -234,11 +239,11 @@ template<> struct double_width_integer<std::uint64_t> { using type = __uint128_t
         return ResultType ( m >> std::numeric_limits<unsigned_result_type<ResultType>>::digits );
     }
     #else
-    template<typename Rng, typename Type, typename ResultType>
-    ResultType br_lemire_oneill ( Rng & rng, Type range ) NOEXCEPT {
-        if constexpr ( std::is_same<Type, std::uint64_t>::value ) {
+    template<typename Rng, typename RangeType, typename ResultType>
+    ResultType br_lemire_oneill ( Rng & rng, RangeType range ) NOEXCEPT {
+        if constexpr ( std::is_same<RangeType, std::uint64_t>::value ) {
             unsigned_result_type<ResultType> x = rng ( );
-            if ( range >= ( unsigned_result_type<ResultType> { 1 } << ( sizeof ( unsigned_result_type<ResultType> ) * 8 - 1 ) ) ) {
+            if ( range >= make_mask<ResultType> ( ) ) {
                 do {
                     x = rng ( );
                 } while ( x >= range );
@@ -260,7 +265,7 @@ template<> struct double_width_integer<std::uint64_t> { using type = __uint128_t
         else { // range is of type std::uint32_t.
             using double_width_unsigned_result_type = typename double_width_integer<unsigned_result_type<ResultType>>::type;
             unsigned_result_type<ResultType> x = rng ( );
-            if ( range >= ( unsigned_result_type<ResultType> { 1 } << ( sizeof ( unsigned_result_type<ResultType> ) * 8 - 1 ) ) ) {
+            if ( range >= make_mask<ResultType> ( ) ) {
                 do {
                     x = rng ( );
                 } while ( x >= range );
@@ -285,11 +290,11 @@ template<> struct double_width_integer<std::uint64_t> { using type = __uint128_t
     }
     #endif
 #else
-template<typename Rng, typename Type, typename ResultType = Type>
-ResultType br_lemire_oneill ( Rng & rng, Type range ) NOEXCEPT {
+template<typename Rng, typename RangeType, typename ResultType>
+ResultType br_lemire_oneill ( Rng & rng, RangeType range ) NOEXCEPT {
     using double_width_unsigned_result_type = typename double_width_integer<unsigned_result_type<ResultType>>::type;
     unsigned_result_type<ResultType> x = rng ( );
-    if ( range >= ( unsigned_result_type<ResultType> { 1 } << ( sizeof ( unsigned_result_type<ResultType> ) * 8 - 1 ) ) ) {
+    if ( range >= make_mask<ResultType> ( ) ) {
         do {
             x = rng ( );
         } while ( x >= range );
@@ -421,7 +426,7 @@ class uniform_int_distribution_fast : public detail::param_type<IntType, uniform
         if constexpr ( CLANG || ( MSVC && MEMORY_MODEL_32 ) ) {
             return detail::br_lemire_oneill<generator_reference<Gen>, unsigned_result_type, result_type> ( rng_ref, pt::range ) + pt::min;
         }
-        else { // bitmask
+        else {
             return detail::br_bitmask<generator_reference<Gen>, unsigned_result_type, result_type> ( rng_ref, pt::range ) + pt::min;
         }
     }
