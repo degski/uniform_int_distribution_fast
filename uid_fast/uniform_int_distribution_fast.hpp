@@ -37,16 +37,17 @@
 #endif
 
 #include <cassert>
+#include <ciso646>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 
 #if UINTPTR_MAX == 0xFFFF'FFFF
-    #define MEMORY_MODEL_32 1
-    #define MEMORY_MODEL_64 0
+    #define M32 1
+    #define M64 0
 #elif UINTPTR_MAX == 0xFFFF'FFFF'FFFF'FFFF
-    #define MEMORY_MODEL_32 0
-    #define MEMORY_MODEL_64 1
+    #define M32 0
+    #define M64 1
 #else
     #error funny pointers detected
 #endif
@@ -84,15 +85,18 @@
     unsigned char _BitScanReverse64 ( unsigned long *, unsigned long long );
 #endif
 
-#if MEMORY_MODEL_32
+#if M32
     #include <absl/numeric/int128.h>
 #endif
 
 #if _HAS_EXCEPTIONS == 0
-#define NOEXCEPT
+    #define NOEXCEPT
 #else
-#define NOEXCEPT noexcept
+    #define NOEXCEPT noexcept
 #endif
+
+#define USE_LEMIRE_ONEILL ( CLANG or ( MSVC and M32 ) )
+
 
 namespace ext {
 
@@ -108,7 +112,7 @@ struct uint32uint32_t {
 template<typename Type>
 std::uint32_t leading_zeros ( Type x ) NOEXCEPT {
     if constexpr ( std::is_same<Type, std::uint64_t>::value ) {
-        if constexpr ( MEMORY_MODEL_32 ) {
+        if constexpr ( M32 ) {
             if constexpr ( MSVC ) {
                 unsigned long c = 0u;
                 if ( !( ( *reinterpret_cast<uint32uint32_t*> ( &x ) ).high ) ) {
@@ -125,7 +129,7 @@ std::uint32_t leading_zeros ( Type x ) NOEXCEPT {
                 return __builtin_clz ( ( *reinterpret_cast<uint32uint32_t*> ( &x ) ).high );
             }
         }
-        else { // MEMORY_MODEL_64.
+        else { // M64.
             if constexpr ( MSVC ) {
                 unsigned long c;
                 _BitScanReverse64 ( &c, x );
@@ -150,7 +154,6 @@ std::uint32_t leading_zeros ( Type x ) NOEXCEPT {
 
 template<typename Rng, typename RangeType, typename ResultType>
 ResultType bounded_range_bitmask ( Rng & rng, RangeType range ) NOEXCEPT {
-    --range;
     RangeType mask = std::numeric_limits<RangeType>::max ( );
     mask >>= leading_zeros<RangeType> ( range | RangeType { 1 } );
     RangeType x;
@@ -187,10 +190,10 @@ template<typename IT> struct double_width_integer { };
 template<> struct double_width_integer<std::uint8_t > { using type = std::uint16_t; };
 template<> struct double_width_integer<std::uint16_t> { using type = std::uint32_t; };
 template<> struct double_width_integer<std::uint32_t> { using type = std::uint64_t; };
-#if MEMORY_MODEL_32
+#if M32
 template<> struct double_width_integer<std::uint64_t> { using type = absl::uint128; };
 #endif
-#if GNU && MEMORY_MODEL_64
+#if GNU and M64
 template<> struct double_width_integer<std::uint64_t> { using type = __uint128_t; };
 #endif
 
@@ -202,7 +205,7 @@ constexpr Type make_mask ( ) NOEXCEPT {
 
 template<typename Rng, typename RangeType, typename ResultType>
 ResultType bounded_range_lemire_oneill ( Rng & rng, RangeType range ) NOEXCEPT {
-    #if MSVC && MEMORY_MODEL_64
+    #if MSVC and M64
     if constexpr ( std::is_same<RangeType, std::uint64_t>::value ) {
         RangeType x = rng ( );
         if ( range >= make_mask<RangeType> ( ) ) {
@@ -249,7 +252,7 @@ ResultType bounded_range_lemire_oneill ( Rng & rng, RangeType range ) NOEXCEPT {
             }
         }
         return ResultType ( m >> std::numeric_limits<RangeType>::digits );
-    #if MSVC && MEMORY_MODEL_64
+    #if MSVC and M64
     }
     #endif
 }
@@ -276,17 +279,17 @@ struct param_type {
     explicit param_type ( result_type min_, result_type max_ ) NOEXCEPT :
         min ( min_ ),
         range ( max_ - min_ + 1 ) { // wraps to 0 for unsigned max.
-        //if constexpr ( MEMORY_MODEL_32 and std::numeric_limits<range_type>::digits == 64 ) {
-        //    --range;
-       // }
+        if constexpr ( not ( USE_LEMIRE_ONEILL ) ) {
+            --range;
+        }
     }
 
     [[ nodiscard ]] constexpr bool operator == ( const param_type & rhs ) const NOEXCEPT {
-        return ( min == rhs.min ) && ( range == rhs.range );
+        return ( min == rhs.min ) and ( range == rhs.range );
     }
 
     [[ nodiscard ]] constexpr bool operator != ( const param_type & rhs ) const NOEXCEPT {
-        return ! ( *this == rhs );
+        return not ( *this == rhs );
     }
 
     [[ nodiscard ]] constexpr result_type a ( ) const NOEXCEPT {
@@ -294,12 +297,12 @@ struct param_type {
     }
 
     [[ nodiscard ]] constexpr result_type b ( ) const NOEXCEPT {
-        //if constexpr ( MEMORY_MODEL_32 and std::numeric_limits<range_type>::digits == 64 ) {
-        //    return ( range + 1 ) ? range + min : std::numeric_limits<result_type>::max ( );
-        //}
-       // else {
+        if constexpr ( USE_LEMIRE_ONEILL ) {
             return range ? range + min - 1 : std::numeric_limits<result_type>::max ( );
-        //}
+        }
+        else {
+            return ( range + 1 ) ? range + min : std::numeric_limits<result_type>::max ( );
+        }
     }
 
     private:
@@ -314,7 +317,7 @@ struct param_type {
 template<typename IntType>
 class uniform_int_distribution_fast : public detail::param_type<IntType, uniform_int_distribution_fast<IntType>> {
 
-    static_assert ( detail::is_distribution_result_type<IntType>::value, "only 16-, 32- and 64-bit result_types supported." );
+    static_assert ( detail::is_distribution_result_type<IntType>::value, "only 16-, 32- and 64-bit result_types are allowed." );
 
     public:
 
@@ -329,7 +332,7 @@ class uniform_int_distribution_fast : public detail::param_type<IntType, uniform
     using range_type = typename std::make_unsigned<result_type>::type;
 
     [[ nodiscard ]] constexpr range_type range_max ( ) const NOEXCEPT {
-        return range_type { 1 } << ( sizeof ( range_type ) * 8 - 1 );
+        return range_type { 1 } << ( std::numeric_limits<range_type>::digits - 1 );
     }
 
     template<typename Gen>
@@ -344,9 +347,11 @@ class uniform_int_distribution_fast : public detail::param_type<IntType, uniform
         assert ( b > a );
     }
     explicit uniform_int_distribution_fast ( const param_type & params_ ) NOEXCEPT :
-        param_type ( params_ ) { }
+        param_type ( params_ ) {
+    }
 
-    void reset ( ) const NOEXCEPT { }
+    void reset ( ) const NOEXCEPT {
+    }
 
     template<typename Gen>
     [[ nodiscard ]] result_type operator ( ) ( Gen & rng ) const NOEXCEPT {
@@ -360,7 +365,7 @@ class uniform_int_distribution_fast : public detail::param_type<IntType, uniform
         if ( 0 == pt::range ) { // deal with interval [ std::numeric_limits<result_type>::min ( ), std::numeric_limits<result_type>::max ( ) ].
             return static_cast<result_type> ( rng_ref ( ) );
         }
-        if constexpr ( CLANG || ( MSVC && MEMORY_MODEL_32 ) ) {
+        if constexpr ( USE_LEMIRE_ONEILL ) {
             return detail::bounded_range_lemire_oneill<generator_reference<Gen>, range_type, result_type> ( rng_ref, pt::range ) + pt::min;
         }
         else {
@@ -385,10 +390,11 @@ class uniform_int_distribution_fast : public detail::param_type<IntType, uniform
     #undef NOMINMAX_LOCALLY_DEFINED
 #endif
 
+#undef USE_LEMIRE_ONEILL
 #undef GNU
 #undef MSVC
 #undef CLANG
 #undef GCC
-#undef MEMORY_MODEL_64
-#undef MEMORY_MODEL_32
+#undef M64
+#undef M32
 #undef NOEXCEPT

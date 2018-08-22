@@ -24,7 +24,6 @@
 #define _HAS_EXCEPTIONS 0
 
 #include <cassert>
-#include <ciso646>
 #include <cstddef>
 #include <cstdint>
 
