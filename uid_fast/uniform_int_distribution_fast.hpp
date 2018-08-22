@@ -95,8 +95,8 @@
     #define NOEXCEPT noexcept
 #endif
 
-#define USE_LEMIRE_ONEILL ( CLANG or ( MSVC and M32 ) )
-
+#define BOUNDED_RANGE_LEMIRE_ONEILL ( CLANG or ( MSVC and M32 ) )
+#define BOUNDED_RANGE_BITMASK not ( BOUNDED_RANGE_LEMIRE_ONEILL )
 
 namespace ext {
 
@@ -152,18 +152,6 @@ std::uint32_t leading_zeros ( Type x ) NOEXCEPT {
     }
 }
 
-template<typename Rng, typename RangeType, typename ResultType>
-ResultType bounded_range_bitmask ( Rng & rng, RangeType range ) NOEXCEPT {
-    RangeType mask = std::numeric_limits<RangeType>::max ( );
-    mask >>= leading_zeros<RangeType> ( range | RangeType { 1 } );
-    RangeType x;
-    do {
-        x = rng ( ) & mask;
-    } while ( x > range );
-    return ResultType ( x );
-}
-
-
 template<typename Gen>
 struct generator_reference : public std::reference_wrapper<Gen> {
 
@@ -197,67 +185,6 @@ template<> struct double_width_integer<std::uint64_t> { using type = absl::uint1
 template<> struct double_width_integer<std::uint64_t> { using type = __uint128_t; };
 #endif
 
-
-template<typename Type>
-constexpr Type make_mask ( ) NOEXCEPT {
-    return Type { 1 } << ( std::numeric_limits<Type>::digits - 1 );
-}
-
-template<typename Rng, typename RangeType, typename ResultType>
-ResultType bounded_range_lemire_oneill ( Rng & rng, RangeType range ) NOEXCEPT {
-    #if MSVC and M64
-    if constexpr ( std::is_same<RangeType, std::uint64_t>::value ) {
-        RangeType x = rng ( );
-        if ( range >= make_mask<RangeType> ( ) ) {
-            do {
-                x = rng ( );
-            } while ( x >= range );
-            return ResultType ( x );
-        }
-        RangeType h, l = _umul128 ( x, range, &h );
-        if ( l < range ) {
-            RangeType = ( 0 - range );
-            t -= range;
-            if ( t >= range ) {
-                t %= range;
-            }
-            while ( l < t ) {
-                l = _umul128 ( rng ( ), range, &h );
-            }
-        }
-        return ResultType ( h );
-    }
-    else {
-    #endif
-        using double_width_range_type = typename double_width_integer<RangeType>::type;
-        RangeType x = rng ( );
-        if ( range >= make_mask<RangeType> ( ) ) {
-            do {
-                x = rng ( );
-            } while ( x >= range );
-            return ResultType ( x );
-        }
-        double_width_range_type m = double_width_range_type ( x ) * double_width_range_type ( range );
-        RangeType l = RangeType ( m );
-        if ( l < range ) {
-            RangeType t = ( 0 - range );
-            t -= range;
-            if ( t >= range ) {
-                t %= range;
-            }
-            while ( l < t ) {
-                x = rng ( );
-                m = double_width_range_type ( x ) * double_width_range_type ( range );
-                l = RangeType ( m );
-            }
-        }
-        return ResultType ( m >> std::numeric_limits<RangeType>::digits );
-    #if MSVC and M64
-    }
-    #endif
-}
-
-
 template<typename IntType>
 using is_distribution_result_type =
 std::disjunction <
@@ -279,7 +206,7 @@ struct param_type {
     explicit param_type ( result_type min_, result_type max_ ) NOEXCEPT :
         min ( min_ ),
         range ( max_ - min_ + 1 ) { // wraps to 0 for unsigned max.
-        if constexpr ( not ( USE_LEMIRE_ONEILL ) ) {
+        if constexpr ( BOUNDED_RANGE_BITMASK ) {
             --range;
         }
     }
@@ -297,10 +224,10 @@ struct param_type {
     }
 
     [[ nodiscard ]] constexpr result_type b ( ) const NOEXCEPT {
-        if constexpr ( USE_LEMIRE_ONEILL ) {
+        if constexpr ( BOUNDED_RANGE_LEMIRE_ONEILL ) {
             return range ? range + min - 1 : std::numeric_limits<result_type>::max ( );
         }
-        else {
+        if constexpr ( BOUNDED_RANGE_BITMASK ) {
             return ( range + 1 ) ? range + min : std::numeric_limits<result_type>::max ( );
         }
     }
@@ -310,8 +237,7 @@ struct param_type {
     result_type min;
     range_type range;
 };
-}
-
+} // namespace detail
 
 
 template<typename IntType>
@@ -365,11 +291,11 @@ class uniform_int_distribution_fast : public detail::param_type<IntType, uniform
         if ( 0 == pt::range ) { // deal with interval [ std::numeric_limits<result_type>::min ( ), std::numeric_limits<result_type>::max ( ) ].
             return static_cast<result_type> ( rng_ref ( ) );
         }
-        if constexpr ( USE_LEMIRE_ONEILL ) {
-            return detail::bounded_range_lemire_oneill<generator_reference<Gen>, range_type, result_type> ( rng_ref, pt::range ) + pt::min;
+        if constexpr ( BOUNDED_RANGE_LEMIRE_ONEILL ) {
+            return bounded_range_lemire_oneill ( rng_ref ) + pt::min;
         }
-        else {
-            return detail::bounded_range_bitmask<generator_reference<Gen>, range_type, result_type> ( rng_ref, pt::range ) + pt::min;
+        if constexpr ( BOUNDED_RANGE_BITMASK ) {
+            return bounded_range_bitmask ( rng_ref ) + pt::min;
         }
     }
 
@@ -380,8 +306,75 @@ class uniform_int_distribution_fast : public detail::param_type<IntType, uniform
     void param ( const param_type & params ) NOEXCEPT {
         *this = params;
     }
+
+    private:
+
+    template<typename Rng>
+    result_type bounded_range_bitmask ( Rng & rng ) const NOEXCEPT {
+        range_type mask = std::numeric_limits<range_type>::max ( );
+        mask >>= detail::leading_zeros<range_type> ( pt::range | range_type { 1 } );
+        range_type x;
+        do {
+            x = rng ( ) & mask;
+        } while ( x > pt::range );
+        return result_type ( x );
+    }
+
+    template<typename Rng>
+    result_type bounded_range_lemire_oneill ( Rng & rng ) const NOEXCEPT {
+        #if MSVC and M64
+        if constexpr ( std::is_same<range_type, std::uint64_t>::value ) {
+            range_type x = rng ( );
+            if ( pt::range >= range_max ( ) ) {
+                do {
+                    x = rng ( );
+                } while ( x >= pt::range );
+                return result_type ( x );
+            }
+            range_type h, l = _umul128 ( x, pt::range, &h );
+            if ( l < pt::range ) {
+                range_type = ( 0 - pt::range );
+                t -= pt::range;
+                if ( t >= pt::range ) {
+                    t %= pt::range;
+                }
+                while ( l < t ) {
+                    l = _umul128 ( rng ( ), pt::range, &h );
+                }
+            }
+            return result_type ( h );
+        }
+        else {
+        #endif
+            using double_width_range_type = typename detail::double_width_integer<range_type>::type;
+            range_type x = rng ( );
+            if ( pt::range >= range_max ( ) ) {
+                do {
+                    x = rng ( );
+                } while ( x >= pt::range );
+                return result_type ( x );
+            }
+            double_width_range_type m = double_width_range_type ( x ) * double_width_range_type ( pt::range );
+            range_type l = range_type ( m );
+            if ( l < pt::range ) {
+                range_type t = ( 0 - pt::range );
+                t -= pt::range;
+                if ( t >= pt::range ) {
+                    t %= pt::range;
+                }
+                while ( l < t ) {
+                    x = rng ( );
+                    m = double_width_range_type ( x ) * double_width_range_type ( pt::range );
+                    l = range_type ( m );
+                }
+            }
+            return result_type ( m >> std::numeric_limits<range_type>::digits );
+        #if MSVC and M64
+        }
+        #endif
+    }
 };
-}
+} // namespace ext
 
 // macro cleanup
 
@@ -390,7 +383,8 @@ class uniform_int_distribution_fast : public detail::param_type<IntType, uniform
     #undef NOMINMAX_LOCALLY_DEFINED
 #endif
 
-#undef USE_LEMIRE_ONEILL
+#undef BOUNDED_RANGE_LEMIRE_ONEILL
+#undef BOUNDED_RANGE_BITMASK
 #undef GNU
 #undef MSVC
 #undef CLANG
