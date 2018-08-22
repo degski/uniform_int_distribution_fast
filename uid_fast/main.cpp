@@ -24,6 +24,9 @@
 #define _HAS_EXCEPTIONS 0
 
 #include <cassert>
+#ifdef _WIN32
+    #include <ciso646>
+#endif
 #include <cstddef>
 #include <cstdint>
 

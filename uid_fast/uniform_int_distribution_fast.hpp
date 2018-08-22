@@ -37,7 +37,9 @@
 #endif
 
 #include <cassert>
-#include <ciso646>
+#ifdef _WIN32
+    #include <ciso646>
+#endif
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -71,6 +73,8 @@
     #define MSVC 1
     #define GCC 0
     #define CLANG 0
+    #pragma warning ( push )
+    #pragma warning ( disable : 4244 )
 #else
     #define GNU 1
     #define MSVC 0
@@ -85,18 +89,11 @@
     unsigned char _BitScanReverse64 ( unsigned long *, unsigned long long );
 #endif
 
-#if M32
-    #include <absl/numeric/int128.h>
-#endif
-
 #if _HAS_EXCEPTIONS == 0
     #define NOEXCEPT
 #else
     #define NOEXCEPT noexcept
 #endif
-
-#define BOUNDED_RANGE_LEMIRE_ONEILL ( CLANG or ( MSVC and M32 ) )
-#define BOUNDED_RANGE_BITMASK not ( BOUNDED_RANGE_LEMIRE_ONEILL )
 
 namespace ext {
 
@@ -104,6 +101,18 @@ template<typename IntType = int>
 class uniform_int_distribution_fast;
 
 namespace detail {
+
+template<typename RangeType>
+constexpr bool br_lemire_oneill ( ) NOEXCEPT {
+    return ( CLANG and M64 ) or
+           ( CLANG and M32 and not ( std::is_same<RangeType, std::uint64_t>::value ) ) or
+           ( MSVC and M32 and not ( std::is_same<RangeType, std::uint64_t>::value ) );
+}
+
+template<typename RangeType>
+constexpr bool br_bitmask ( ) NOEXCEPT {
+    return not ( br_lemire_oneill<RangeType> ( ) );
+}
 
 struct uint32uint32_t {
     std::uint32_t low, high;
@@ -178,9 +187,6 @@ template<typename IT> struct double_width_integer { };
 template<> struct double_width_integer<std::uint8_t > { using type = std::uint16_t; };
 template<> struct double_width_integer<std::uint16_t> { using type = std::uint32_t; };
 template<> struct double_width_integer<std::uint32_t> { using type = std::uint64_t; };
-#if M32
-template<> struct double_width_integer<std::uint64_t> { using type = absl::uint128; };
-#endif
 #if GNU and M64
 template<> struct double_width_integer<std::uint64_t> { using type = __uint128_t; };
 #endif
@@ -206,7 +212,7 @@ struct param_type {
     explicit param_type ( result_type min_, result_type max_ ) NOEXCEPT :
         min ( min_ ),
         range ( max_ - min_ + 1 ) { // wraps to 0 for unsigned max.
-        if constexpr ( BOUNDED_RANGE_BITMASK ) {
+        if constexpr ( br_bitmask<range_type> ( ) ) {
             --range;
         }
     }
@@ -224,10 +230,10 @@ struct param_type {
     }
 
     [[ nodiscard ]] constexpr result_type b ( ) const NOEXCEPT {
-        if constexpr ( BOUNDED_RANGE_LEMIRE_ONEILL ) {
+        if constexpr ( br_lemire_oneill<range_type> ( ) ) {
             return range ? range + min - 1 : std::numeric_limits<result_type>::max ( );
         }
-        if constexpr ( BOUNDED_RANGE_BITMASK ) {
+        if constexpr ( br_bitmask<range_type> ( ) ) {
             return ( range + 1 ) ? range + min : std::numeric_limits<result_type>::max ( );
         }
     }
@@ -291,10 +297,10 @@ class uniform_int_distribution_fast : public detail::param_type<IntType, uniform
         if ( 0 == pt::range ) { // deal with interval [ std::numeric_limits<result_type>::min ( ), std::numeric_limits<result_type>::max ( ) ].
             return static_cast<result_type> ( rng_ref ( ) );
         }
-        if constexpr ( BOUNDED_RANGE_LEMIRE_ONEILL ) {
+        if constexpr ( detail::br_lemire_oneill<range_type> ( ) ) {
             return bounded_range_lemire_oneill ( rng_ref ) + pt::min;
         }
-        if constexpr ( BOUNDED_RANGE_BITMASK ) {
+        if constexpr ( detail::br_bitmask<range_type> ( ) ) {
             return bounded_range_bitmask ( rng_ref ) + pt::min;
         }
     }
@@ -383,8 +389,10 @@ class uniform_int_distribution_fast : public detail::param_type<IntType, uniform
     #undef NOMINMAX_LOCALLY_DEFINED
 #endif
 
-#undef BOUNDED_RANGE_LEMIRE_ONEILL
-#undef BOUNDED_RANGE_BITMASK
+#if MSVC
+    #pragma warning ( pop )
+#endif
+
 #undef GNU
 #undef MSVC
 #undef CLANG
