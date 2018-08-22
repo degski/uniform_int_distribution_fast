@@ -263,7 +263,7 @@ class uniform_int_distribution_fast : public detail::param_type<IntType, uniform
     using pt = param_type;
     using range_type = typename std::make_unsigned<result_type>::type;
 
-    [[ nodiscard ]] constexpr range_type range_max ( ) const NOEXCEPT {
+    [[ nodiscard ]] constexpr range_type range_mask ( ) const NOEXCEPT {
         return range_type { 1 } << ( std::numeric_limits<range_type>::digits - 1 );
     }
 
@@ -331,7 +331,7 @@ class uniform_int_distribution_fast : public detail::param_type<IntType, uniform
         #if MSVC and M64
         if constexpr ( std::is_same<range_type, std::uint64_t>::value ) {
             range_type x = rng ( );
-            if ( pt::range >= range_max ( ) ) {
+            if ( pt::range >= range_mask ( ) ) {
                 do {
                     x = rng ( );
                 } while ( x >= pt::range );
@@ -354,7 +354,7 @@ class uniform_int_distribution_fast : public detail::param_type<IntType, uniform
         #endif
             using double_width_range_type = typename detail::double_width_integer<range_type>::type;
             range_type x = rng ( );
-            if ( pt::range >= range_max ( ) ) {
+            if ( pt::range >= range_mask ( ) ) {
                 do {
                     x = rng ( );
                 } while ( x >= pt::range );
