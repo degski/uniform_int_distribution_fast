@@ -29,17 +29,7 @@
 
 #pragma once
 
-#ifdef _WIN32
-#ifndef NOMINMAX
-    #define NOMINMAX_LOCALLY_DEFINED
-    #define NOMINMAX
-#endif
-#endif
-
 #include <cassert>
-#ifdef _WIN32
-    #include <ciso646>
-#endif
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -339,7 +329,7 @@ class uniform_int_distribution_fast : public detail::param_type<IntType, uniform
             }
             range_type h, l = _umul128 ( x, pt::range, &h );
             if ( l < pt::range ) {
-                range_type = ( 0 - pt::range );
+                range_type t = ( 0 - pt::range );
                 t -= pt::range;
                 if ( t >= pt::range ) {
                     t %= pt::range;
@@ -382,16 +372,12 @@ class uniform_int_distribution_fast : public detail::param_type<IntType, uniform
 };
 } // namespace ext
 
-// macro cleanup
-
-#if defined ( NOMINMAX_LOCALLY_DEFINED )
-    #undef NOMINMAX
-    #undef NOMINMAX_LOCALLY_DEFINED
-#endif
 
 #if MSVC
     #pragma warning ( pop )
 #endif
+
+// macro cleanup
 
 #undef GNU
 #undef MSVC

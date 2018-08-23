@@ -21,12 +21,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifdef _WIN32
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#endif
-
 #if !defined ( _DEBUG )
 #define NOEXCEPT
 #define _HAS_EXCEPTIONS 0
@@ -36,7 +30,6 @@
 
 #include <intrin.h>
 #include <cassert>
-#include <ciso646>
 #include <cstddef>
 #include <cstdint>
 
