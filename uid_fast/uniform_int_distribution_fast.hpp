@@ -75,8 +75,8 @@
         #define CLANG 0
         #define GCC 1
     #endif
-    unsigned char _BitScanReverse ( unsigned long *, unsigned long );
-    unsigned char _BitScanReverse64 ( unsigned long *, unsigned long long );
+    extern "C" unsigned char _BitScanReverse ( unsigned long *, unsigned long );
+    extern "C" unsigned char _BitScanReverse64 ( unsigned long *, unsigned long long );
 #endif
 
 #if _HAS_EXCEPTIONS == 0
@@ -94,9 +94,9 @@ namespace detail {
 
 template<typename RangeType>
 constexpr bool br_lemire_oneill ( ) NOEXCEPT {
-    return ( CLANG and M64 ) or
+    return true; /* ( CLANG and M64 ) or
            ( CLANG and M32 and not ( std::is_same<RangeType, std::uint64_t>::value ) ) or
-           ( MSVC and M32 and not ( std::is_same<RangeType, std::uint64_t>::value ) );
+           ( MSVC and M32 and not ( std::is_same<RangeType, std::uint64_t>::value ) ); */
 }
 
 template<typename RangeType>
@@ -277,13 +277,21 @@ class uniform_int_distribution_fast : public detail::param_type<IntType, uniform
 
     template<typename Gen>
     [[ nodiscard ]] result_type operator ( ) ( Gen & rng ) const NOEXCEPT {
-        static generator_reference<Gen> rng_ref ( rng );
-        return 1;
+        generator_reference<Gen> rng_ref ( rng );
+        if ( 0 == pt::range ) { // deal with interval [ std::numeric_limits<result_type>::min ( ), std::numeric_limits<result_type>::max ( ) ].
+            return static_cast< result_type > ( rng_ref ( ) );
+        }
+        if constexpr ( detail::br_lemire_oneill<range_type> ( ) ) {
+            return bounded_range_lemire_oneill ( rng_ref ) + pt::min;
+        }
+        if constexpr ( detail::br_bitmask<range_type> ( ) ) {
+            return bounded_range_bitmask ( rng_ref ) + pt::min;
+        }
     }
 
     template<typename Gen>
     [[ nodiscard ]] result_type generate ( Gen & rng ) const NOEXCEPT {
-        static generator_reference<Gen> rng_ref ( rng );
+        generator_reference<Gen> rng_ref ( rng );
         if ( 0 == pt::range ) { // deal with interval [ std::numeric_limits<result_type>::min ( ), std::numeric_limits<result_type>::max ( ) ].
             return static_cast<result_type> ( rng_ref ( ) );
         }

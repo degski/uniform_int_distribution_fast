@@ -44,26 +44,99 @@
 #endif
 
 #include "uniform_int_distribution_fast.hpp"
+#include "plf_nanotimer.h"
 
 
 int main ( ) {
 
-    splitmix64 rng ( [ ] ( ) { std::random_device rdev; return ( static_cast<std::uint64_t> ( rdev ( ) ) << 32 ) | static_cast<std::uint64_t> ( rdev ( ) ); } ( ) );
-    // ext::uniform_int_distribution_fast<std::uint64_t> dis ( 0, ( std::uint64_t { 1 } << 63 ) - 100 );
-    ext::uniform_int_distribution_fast<std::uint64_t> dis ( 0, 9 );
+    splitmix32 rng ( [ ] ( ) { std::random_device rdev; return ( static_cast<std::uint64_t> ( rdev ( ) ) << 32 ) | static_cast<std::uint64_t> ( rdev ( ) ); } ( ) );
 
-    std::array<std::uint64_t, 10> freq { 0 };
+    std::uniform_int_distribution<std::uint32_t> sdis ( 0, 199 );
+    ext::uniform_int_distribution_fast<std::uint32_t> fdis ( 0, 199 );
 
-    for ( std::size_t k = 0; k < 100'000'000; ++k ) {
-        ++freq [ static_cast<std::size_t> ( dis.generate ( rng ) ) ];
+    {
+        std::array<std::uint64_t, 200> freq { 0 };
+
+        plf::nanotimer t;
+        t.start ( );
+
+        for ( std::size_t k = 0; k < 100'000'000; ++k ) {
+            ++freq [ static_cast< std::size_t > ( sdis ( rng ) ) ];
+        }
+
+        double et = t.get_elapsed_ms ( );
+
+        std::cout << sdis.a ( ) << " " << sdis.b ( ) << std::endl;
+
+        for ( auto v : freq ) {
+            std::cout << v << " ";
+        }
+        std::cout << std::endl;
+        std::cout << ( std::uint64_t ) et << std::endl;
     }
 
-    std::cout << dis.a ( ) << " " << dis.b ( ) << std::endl;
+    {
+        std::array<std::uint64_t, 200> freq { 0 };
 
-    for ( auto v : freq ) {
-        std::cout << v << " ";
+        plf::nanotimer t;
+        t.start ( );
+
+        for ( std::size_t k = 0; k < 100'000'000; ++k ) {
+            ++freq [ static_cast< std::size_t > ( fdis ( rng ) ) ];
+        }
+
+        double et = t.get_elapsed_ms ( );
+
+        std::cout << fdis.a ( ) << " " << fdis.b ( ) << std::endl;
+
+        for ( auto v : freq ) {
+            std::cout << v << " ";
+        }
+        std::cout << std::endl;
+        std::cout << ( std::uint64_t ) et << std::endl;
     }
-    std::cout << std::endl;
+
+    {
+        std::array<std::uint64_t, 200> freq { 0 };
+
+        plf::nanotimer t;
+        t.start ( );
+
+        for ( std::size_t k = 0; k < 100'000'000; ++k ) {
+            ++freq [ static_cast< std::size_t > ( sdis ( rng ) ) ];
+        }
+
+        double et = t.get_elapsed_ms ( );
+
+        std::cout << sdis.a ( ) << " " << sdis.b ( ) << std::endl;
+
+        for ( auto v : freq ) {
+            std::cout << v << " ";
+        }
+        std::cout << std::endl;
+        std::cout << ( std::uint64_t ) et << std::endl;
+    }
+
+    {
+        std::array<std::uint64_t, 200> freq { 0 };
+
+        plf::nanotimer t;
+        t.start ( );
+
+        for ( std::size_t k = 0; k < 100'000'000; ++k ) {
+            ++freq [ static_cast< std::size_t > ( fdis ( rng ) ) ];
+        }
+
+        double et = t.get_elapsed_ms ( );
+
+        std::cout << fdis.a ( ) << " " << fdis.b ( ) << std::endl;
+
+        for ( auto v : freq ) {
+            std::cout << v << " ";
+        }
+        std::cout << std::endl;
+        std::cout << ( std::uint64_t ) et << std::endl;
+    }
 
     return EXIT_SUCCESS;
 }
