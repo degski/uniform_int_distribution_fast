@@ -45,97 +45,85 @@
 
 #include "uniform_int_distribution_fast.hpp"
 #include "plf_nanotimer.h"
+#include "statistics.hpp"
 
 
 int main ( ) {
 
     splitmix32 rng ( [ ] ( ) { std::random_device rdev; return ( static_cast<std::uint64_t> ( rdev ( ) ) << 32 ) | static_cast<std::uint64_t> ( rdev ( ) ); } ( ) );
 
-    std::uniform_int_distribution<std::uint32_t> sdis ( 0, 199 );
-    ext::uniform_int_distribution_fast<std::uint32_t> fdis ( 0, 199 );
+    constexpr std::uint32_t ts = 200'000;
+    constexpr std::size_t is = ts * 1'000;
+
+    std::uniform_int_distribution<std::uint32_t> sdis ( 0, ts - 1 );
+    ext::uniform_int_distribution_fast<std::uint32_t> fdis ( 0, ts - 1 );
 
     {
-        std::array<std::uint64_t, 200> freq { 0 };
+        std::vector<std::uint64_t> freq ( ts, 0 );
 
         plf::nanotimer t;
         t.start ( );
 
-        for ( std::size_t k = 0; k < 100'000'000; ++k ) {
-            ++freq [ static_cast< std::size_t > ( sdis ( rng ) ) ];
+        for ( std::size_t k = 0; k < is; ++k ) {
+            ++freq [ static_cast<std::size_t> ( sdis ( rng ) ) ];
         }
 
         double et = t.get_elapsed_ms ( );
 
-        std::cout << sdis.a ( ) << " " << sdis.b ( ) << std::endl;
+        const auto [ min, max, mean, variance, sample_sd, population_sd ] = sf::stats ( freq.data ( ), freq.size ( ) );
 
-        for ( auto v : freq ) {
-            std::cout << v << " ";
-        }
-        std::cout << std::endl;
-        std::cout << ( std::uint64_t ) et << std::endl;
+        std::cout << sample_sd << " " << population_sd << " " << et << std::endl;
     }
 
     {
-        std::array<std::uint64_t, 200> freq { 0 };
+        std::vector<std::uint64_t> freq ( ts, 0 );
 
         plf::nanotimer t;
         t.start ( );
 
-        for ( std::size_t k = 0; k < 100'000'000; ++k ) {
+        for ( std::size_t k = 0; k < is; ++k ) {
             ++freq [ static_cast< std::size_t > ( fdis ( rng ) ) ];
         }
 
         double et = t.get_elapsed_ms ( );
 
-        std::cout << fdis.a ( ) << " " << fdis.b ( ) << std::endl;
+        const auto [ min, max, mean, variance, sample_sd, population_sd ] = sf::stats ( freq.data ( ), freq.size ( ) );
 
-        for ( auto v : freq ) {
-            std::cout << v << " ";
-        }
-        std::cout << std::endl;
-        std::cout << ( std::uint64_t ) et << std::endl;
+        std::cout << sample_sd << " " << population_sd << " " << et << std::endl;
     }
 
     {
-        std::array<std::uint64_t, 200> freq { 0 };
+        std::vector<std::uint64_t> freq ( ts, 0 );
 
         plf::nanotimer t;
         t.start ( );
 
-        for ( std::size_t k = 0; k < 100'000'000; ++k ) {
+        for ( std::size_t k = 0; k < is; ++k ) {
             ++freq [ static_cast< std::size_t > ( sdis ( rng ) ) ];
         }
 
         double et = t.get_elapsed_ms ( );
 
-        std::cout << sdis.a ( ) << " " << sdis.b ( ) << std::endl;
+        const auto [ min, max, mean, variance, sample_sd, population_sd ] = sf::stats ( freq.data ( ), freq.size ( ) );
 
-        for ( auto v : freq ) {
-            std::cout << v << " ";
-        }
-        std::cout << std::endl;
-        std::cout << ( std::uint64_t ) et << std::endl;
+        std::cout << sample_sd << " " << population_sd << " " << et << std::endl;
     }
 
     {
-        std::array<std::uint64_t, 200> freq { 0 };
+        std::vector<std::uint64_t> freq ( ts, 0 );
 
         plf::nanotimer t;
         t.start ( );
 
-        for ( std::size_t k = 0; k < 100'000'000; ++k ) {
+        for ( std::size_t k = 0; k < is; ++k ) {
             ++freq [ static_cast< std::size_t > ( fdis ( rng ) ) ];
         }
 
         double et = t.get_elapsed_ms ( );
 
-        std::cout << fdis.a ( ) << " " << fdis.b ( ) << std::endl;
+        const auto [ min, max, mean, variance, sample_sd, population_sd ] = sf::stats ( freq.data ( ), freq.size ( ) );
 
-        for ( auto v : freq ) {
-            std::cout << v << " ";
-        }
-        std::cout << std::endl;
-        std::cout << ( std::uint64_t ) et << std::endl;
+        std::cout << sample_sd << " " << population_sd << " " << et << std::endl;
     }
 
     return EXIT_SUCCESS;

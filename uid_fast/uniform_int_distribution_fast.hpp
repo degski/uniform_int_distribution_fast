@@ -289,20 +289,6 @@ class uniform_int_distribution_fast : public detail::param_type<IntType, uniform
         }
     }
 
-    template<typename Gen>
-    [[ nodiscard ]] result_type generate ( Gen & rng ) const NOEXCEPT {
-        generator_reference<Gen> rng_ref ( rng );
-        if ( 0 == pt::range ) { // deal with interval [ std::numeric_limits<result_type>::min ( ), std::numeric_limits<result_type>::max ( ) ].
-            return static_cast<result_type> ( rng_ref ( ) );
-        }
-        if constexpr ( detail::br_lemire_oneill<range_type> ( ) ) {
-            return bounded_range_lemire_oneill ( rng_ref ) + pt::min;
-        }
-        if constexpr ( detail::br_bitmask<range_type> ( ) ) {
-            return bounded_range_bitmask ( rng_ref ) + pt::min;
-        }
-    }
-
     [[ nodiscard ]] param_type param ( ) const NOEXCEPT {
         return *this;
     }
@@ -322,6 +308,37 @@ class uniform_int_distribution_fast : public detail::param_type<IntType, uniform
             x = rng ( ) & mask;
         } while ( x > pt::range );
         return result_type ( x );
+    }
+
+    template<typename Rng>
+    result_type bounded_range_lemire ( Rng & rng ) const NOEXCEPT {
+        #if MSVC and M64
+        if constexpr ( std::is_same<range_type, std::uint64_t>::value ) {
+            const range_type t = ( 0 - pt::range ) % pt::range;
+            range_type x = rng ( );
+            range_type h, l = _umul128 ( x, pt::range, &h );
+            while ( l < t ) {
+                x = rng ( );
+                l = _umul128 ( x, pt::range, &h );
+            };
+            return result_type ( h );
+        }
+        else { // pt::range is of type std::uint32_t.
+        #endif
+            using double_width_unsigned_result_type = typename detail::double_width_integer<range_type>::type;
+            const range_type t = ( 0 - pt::range ) % pt::range;
+            range_type x = rng ( );
+            double_width_unsigned_result_type m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( pt::range );
+            range_type l = range_type ( m );
+            while ( l < t ) {
+                x = rng ( );
+                m = double_width_unsigned_result_type ( x ) * double_width_unsigned_result_type ( pt::range );
+                l = range_type ( m );
+            };
+            return result_type ( m >> std::numeric_limits<range_type>::digits );
+        #if MSVC and M64
+        }
+        #endif
     }
 
     template<typename Rng>
