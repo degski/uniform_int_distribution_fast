@@ -34,7 +34,7 @@
 namespace sf {
 
 // Wellford's method: https://www.johndcook.com/blog/standard_deviation/
-// returns min, max, mean, variance, sample sd and population sd.
+// returns min, max, mean, variance, sample_sd, population_sd.
 template<typename T>
 std::tuple<long double, long double, long double, long double, long double, long double> stats ( T * data, std::size_t n ) noexcept {
     long double min = ( long double ) std::numeric_limits<T>::max ( ), max = ( long double ) std::numeric_limits<T>::min ( );

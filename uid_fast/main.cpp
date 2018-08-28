@@ -47,83 +47,79 @@
 #include "plf_nanotimer.h"
 #include "statistics.hpp"
 
+#if UINTPTR_MAX == 0xFFFF'FFFF
+#define M32 1
+#define M64 0
+#elif UINTPTR_MAX == 0xFFFF'FFFF'FFFF'FFFF
+#define M32 0
+#define M64 1
+#else
+#error funny pointers detected
+#endif
+
+#if M32
+using generator = splitmix32;
+#else
+using generator = splitmix64;
+#endif
+using range_t = typename generator::result_type;
+
 
 int main ( ) {
 
-    splitmix32 rng ( [ ] ( ) { std::random_device rdev; return ( static_cast<std::uint64_t> ( rdev ( ) ) << 32 ) | static_cast<std::uint64_t> ( rdev ( ) ); } ( ) );
+    constexpr range_t ts = 200'000;
+    constexpr std::size_t is = std::size_t { 1 } << 31;
 
-    constexpr std::uint32_t ts = 200'000;
-    constexpr std::size_t is = ts * 1'000;
-
-    std::uniform_int_distribution<std::uint32_t> sdis ( 0, ts - 1 );
-    ext::uniform_int_distribution_fast<std::uint32_t> fdis ( 0, ts - 1 );
+    std::uniform_int_distribution<range_t> sdis ( 0, ts - 1 );
+    ext::uniform_int_distribution_fast<range_t> fdis ( 0, ts - 1 );
 
     {
-        std::vector<std::uint64_t> freq ( ts, 0 );
-
+        generator rng ( 123 );
+        std::vector<range_t> freq ( ts, 0 );
         plf::nanotimer t;
         t.start ( );
-
         for ( std::size_t k = 0; k < is; ++k ) {
             ++freq [ static_cast<std::size_t> ( sdis ( rng ) ) ];
         }
-
         double et = t.get_elapsed_ms ( );
-
         const auto [ min, max, mean, variance, sample_sd, population_sd ] = sf::stats ( freq.data ( ), freq.size ( ) );
-
-        std::cout << sample_sd << " " << population_sd << " " << et << std::endl;
+        std::cout << sample_sd << " " << et << std::endl;
     }
-
     {
-        std::vector<std::uint64_t> freq ( ts, 0 );
-
+        generator rng ( 123 );
+        std::vector<range_t> freq ( ts, 0 );
         plf::nanotimer t;
         t.start ( );
-
         for ( std::size_t k = 0; k < is; ++k ) {
             ++freq [ static_cast< std::size_t > ( fdis ( rng ) ) ];
         }
-
         double et = t.get_elapsed_ms ( );
-
         const auto [ min, max, mean, variance, sample_sd, population_sd ] = sf::stats ( freq.data ( ), freq.size ( ) );
-
-        std::cout << sample_sd << " " << population_sd << " " << et << std::endl;
+        std::cout << sample_sd << " " << et << std::endl;
     }
-
     {
-        std::vector<std::uint64_t> freq ( ts, 0 );
-
+        generator rng ( 123 );
+        std::vector<range_t> freq ( ts, 0 );
         plf::nanotimer t;
         t.start ( );
-
         for ( std::size_t k = 0; k < is; ++k ) {
             ++freq [ static_cast< std::size_t > ( sdis ( rng ) ) ];
         }
-
         double et = t.get_elapsed_ms ( );
-
         const auto [ min, max, mean, variance, sample_sd, population_sd ] = sf::stats ( freq.data ( ), freq.size ( ) );
-
-        std::cout << sample_sd << " " << population_sd << " " << et << std::endl;
+        std::cout << sample_sd << " " << et << std::endl;
     }
-
     {
-        std::vector<std::uint64_t> freq ( ts, 0 );
-
+        generator rng ( 123 );
+        std::vector<range_t> freq ( ts, 0 );
         plf::nanotimer t;
         t.start ( );
-
         for ( std::size_t k = 0; k < is; ++k ) {
             ++freq [ static_cast< std::size_t > ( fdis ( rng ) ) ];
         }
-
         double et = t.get_elapsed_ms ( );
-
         const auto [ min, max, mean, variance, sample_sd, population_sd ] = sf::stats ( freq.data ( ), freq.size ( ) );
-
-        std::cout << sample_sd << " " << population_sd << " " << et << std::endl;
+        std::cout << sample_sd << " " << et << std::endl;
     }
 
     return EXIT_SUCCESS;

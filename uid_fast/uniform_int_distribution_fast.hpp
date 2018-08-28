@@ -85,6 +85,12 @@
     #define NOEXCEPT noexcept
 #endif
 
+#if HAVE_ABSEIL and M32
+    #include <absl/numeric/int128.h>
+#endif
+#define USE_ABSEIL ( HAVE_ABSEIL and M32 )
+
+
 namespace ext {
 
 template<typename IntType = int>
@@ -177,6 +183,9 @@ template<typename IT> struct double_width_integer { };
 template<> struct double_width_integer<std::uint8_t > { using type = std::uint16_t; };
 template<> struct double_width_integer<std::uint16_t> { using type = std::uint32_t; };
 template<> struct double_width_integer<std::uint32_t> { using type = std::uint64_t; };
+#if USE_ABSEIL
+template<> struct double_width_integer<std::uint64_t> { using type = absl::uint128; };
+#endif
 #if GNU and M64
 template<> struct double_width_integer<std::uint64_t> { using type = __uint128_t; };
 #endif
@@ -282,7 +291,7 @@ class uniform_int_distribution_fast : public detail::param_type<IntType, uniform
             return static_cast< result_type > ( rng_ref ( ) );
         }
         if constexpr ( detail::br_lemire_oneill<range_type> ( ) ) {
-            return bounded_range_lemire_oneill ( rng_ref ) + pt::min;
+            return bounded_range_lemire ( rng_ref ) + pt::min;
         }
         if constexpr ( detail::br_bitmask<range_type> ( ) ) {
             return bounded_range_bitmask ( rng_ref ) + pt::min;
@@ -404,6 +413,7 @@ class uniform_int_distribution_fast : public detail::param_type<IntType, uniform
 
 // macro cleanup
 
+#undef USE_ABSEIL
 #undef GNU
 #undef MSVC
 #undef CLANG
