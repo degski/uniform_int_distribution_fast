@@ -154,6 +154,10 @@ public:
         }
     }
 
+    void seed ( const result_type s_ ) noexcept { // degski: added this function.
+        seed_ = s_;
+    }
+
     void advance(uint64_t delta) {
         seed_ += delta * gamma_;
     }

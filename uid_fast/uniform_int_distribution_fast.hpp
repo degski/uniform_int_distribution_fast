@@ -275,7 +275,7 @@ class uniform_int_distribution_fast : public detail::param_type<IntType, uniform
         param_type ( std::numeric_limits<result_type>::min ( ), std::numeric_limits<result_type>::max ( ) ) { }
     explicit uniform_int_distribution_fast ( result_type a, result_type b = std::numeric_limits<result_type>::max ( ) ) NOEXCEPT :
         param_type ( a, b ) {
-        assert ( b > a );
+        assert ( b >= a );
     }
     explicit uniform_int_distribution_fast ( const param_type & params_ ) NOEXCEPT :
         param_type ( params_ ) {
